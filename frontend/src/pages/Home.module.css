@@ -1,0 +1,50 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.header h1 { font-size: 24px; font-weight: 700; }
+
+.searchForm { display: flex; gap: 8px; }
+.searchForm input { width: 240px; }
+
+.filters { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+.filterGroup { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.filterBtn {
+  background: white;
+  border: 1px solid #dee2e6;
+  color: #495057;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+.active {
+  background: #ff7eb3;
+  border: 1px solid #ff7eb3;
+  color: white;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.loading, .empty { text-align: center; color: #868e96; padding: 60px 0; font-size: 15px; }
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 32px;
+  font-size: 14px;
+  color: #495057;
+}

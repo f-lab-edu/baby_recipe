@@ -1,0 +1,25 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff0f6;
+}
+
+.box {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(255, 126, 179, 0.15);
+}
+
+.title { font-size: 24px; font-weight: 700; text-align: center; color: #ff7eb3; }
+.sub { text-align: center; color: #868e96; margin: 8px 0 24px; font-size: 15px; }
+
+.form { display: flex; flex-direction: column; gap: 12px; }
+.form button { margin-top: 4px; padding: 12px; font-size: 15px; }
+
+.footer { text-align: center; margin-top: 20px; font-size: 13px; color: #868e96; }
+.footer a { color: #ff7eb3; font-weight: 600; }

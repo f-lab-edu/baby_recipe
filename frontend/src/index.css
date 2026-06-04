@@ -1,0 +1,44 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  background: #f8f9fa;
+  color: #212529;
+  line-height: 1.6;
+}
+
+a { color: inherit; text-decoration: none; }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 8px 16px;
+  transition: opacity 0.2s;
+}
+button:hover { opacity: 0.85; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: 14px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus { border-color: #ff7eb3; }
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+
+.btn-primary { background: #ff7eb3; color: white; }
+.btn-secondary { background: #e9ecef; color: #495057; }
+.btn-danger { background: #fa5252; color: white; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+
+.error-msg { color: #fa5252; font-size: 13px; margin-top: 6px; }
+.page { padding: 32px 0; min-height: calc(100vh - 60px); }

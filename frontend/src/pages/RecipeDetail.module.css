@@ -1,0 +1,47 @@
+.loading { text-align: center; padding: 60px; color: #868e96; }
+.wrap { max-width: 760px; }
+.main { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+
+.image { width: 100%; border-radius: 12px; margin-bottom: 20px; max-height: 360px; object-fit: cover; }
+
+.badges { display: flex; gap: 8px; margin-bottom: 12px; }
+.badge { font-size: 12px; background: #fff0f6; color: #c2255c; padding: 3px 10px; border-radius: 20px; }
+
+.titleRow { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.titleRow h1 { font-size: 22px; font-weight: 700; }
+.actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+.authorRow { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; font-size: 13px; color: #868e96; }
+.author { color: #495057; font-weight: 600; }
+.meta { color: #adb5bd; }
+
+.desc { font-size: 15px; color: #495057; margin-bottom: 20px; line-height: 1.8; }
+
+.reactionRow { display: flex; gap: 12px; margin-bottom: 16px; }
+.reactionBtn { background: #f1f3f5; color: #495057; }
+.liked { background: #fff0f6; color: #e64980; }
+.bookmarked { background: #e7f5ff; color: #1c7ed6; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.tag { font-size: 13px; color: #74c0fc; }
+
+.section { margin-top: 28px; border-top: 1px solid #f1f3f5; padding-top: 24px; }
+.section h2 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+
+.ingredients { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.ingredients li { display: flex; justify-content: space-between; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #f8f9fa; }
+.ingredients li span:last-child { color: #868e96; }
+
+.steps { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+.steps li { display: flex; gap: 14px; align-items: flex-start; }
+.stepNum { width: 28px; height: 28px; background: #ff7eb3; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.steps p { font-size: 14px; line-height: 1.7; padding-top: 4px; }
+
+.commentForm { display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-end; }
+.commentForm textarea { flex: 1; resize: none; }
+
+.comments { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.commentHeader { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.commentAuthor { font-size: 13px; font-weight: 600; }
+.commentDate { font-size: 12px; color: #adb5bd; }
+.comments p { font-size: 14px; color: #495057; }
