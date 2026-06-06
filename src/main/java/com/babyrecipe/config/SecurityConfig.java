@@ -1,5 +1,7 @@
 package com.babyrecipe.config;
 
+import com.babyrecipe.dto.response.ApiResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,7 @@ public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -39,7 +42,7 @@ public class SecurityConfig {
                 .authenticationEntryPoint((request, response, ex) -> {
                     response.setStatus(401);
                     response.setContentType(MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8");
-                    response.getWriter().write("{\"success\":false,\"message\":\"로그인이 필요합니다.\"}");
+                    response.getWriter().write(objectMapper.writeValueAsString(ApiResponse.error("로그인이 필요합니다.")));
                 })
             )
             .addFilterBefore(

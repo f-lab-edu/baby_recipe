@@ -182,6 +182,7 @@ public class RecipeExtractService {
             // Claude가 배열로 응답한 경우 첫 번째 요소 사용
             JsonNode node = objectMapper.readTree(cleaned);
             if (node.isArray()) {
+                log.warn("Claude가 배열로 응답함 (프롬프트 지시 미준수) - 첫 번째 요소 사용");
                 if (node.isEmpty()) throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
                 node = node.get(0);
             }
