@@ -120,6 +120,7 @@ public class RecipeExtractService {
 
             연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
+            반드시 단일 JSON 객체로만 응답하세요 (배열 [] 사용 금지).
             레시피를 찾을 수 없으면 null을 반환하세요.
             """.formatted(url, content);
 
@@ -177,7 +178,14 @@ public class RecipeExtractService {
             if (cleaned.equals("null") || cleaned.isBlank()) {
                 throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
             }
-            return objectMapper.readValue(cleaned, RecipeExtractResponse.class);
+
+            // Claude가 배열로 응답한 경우 첫 번째 요소 사용
+            JsonNode node = objectMapper.readTree(cleaned);
+            if (node.isArray()) {
+                if (node.isEmpty()) throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
+                node = node.get(0);
+            }
+            return objectMapper.treeToValue(node, RecipeExtractResponse.class);
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
