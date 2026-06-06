@@ -40,8 +40,10 @@ public class RecipeExtractService {
         if (apiKey == null || apiKey.isBlank()) {
             throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
         }
+        log.debug("레시피 추출 시작: url={}, model={}", url, model);
         String content = fetchContent(url);
         String jsonText = callClaude(url, content);
+        log.debug("Claude 응답: {}", jsonText);
         return parseResult(jsonText);
     }
 

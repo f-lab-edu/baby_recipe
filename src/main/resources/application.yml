@@ -36,3 +36,5 @@ logging:
   level:
     com.babyrecipe: DEBUG
     org.springframework.security: WARN
+  file:
+    name: logs/app.log
