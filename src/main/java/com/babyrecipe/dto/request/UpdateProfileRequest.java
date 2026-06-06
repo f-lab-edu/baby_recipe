@@ -11,4 +11,9 @@ public class UpdateProfileRequest {
 
     @Size(max = 200)
     private String bio;
+
+    private String currentPassword;
+
+    @Size(min = 8, message = "비밀번호는 8자 이상이어야 합니다.")
+    private String newPassword;
 }

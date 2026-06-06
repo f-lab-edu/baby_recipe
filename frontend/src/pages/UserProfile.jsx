@@ -8,12 +8,10 @@ import styles from './UserProfile.module.css'
 export default function UserProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user: me, isLoggedIn, updateUser } = useAuth()
+  const { user: me, isLoggedIn } = useAuth()
   const [profile, setProfile] = useState(null)
   const [recipes, setRecipes] = useState([])
   const [tab, setTab] = useState('recipes')
-  const [editMode, setEditMode] = useState(false)
-  const [editForm, setEditForm] = useState({ nickname: '', bio: '' })
   const [loading, setLoading] = useState(true)
 
   const isMe = me?.id === Number(id)
@@ -41,14 +39,6 @@ export default function UserProfile() {
     }
   }
 
-  const saveProfile = async e => {
-    e.preventDefault()
-    const res = await api.put('/users/me', editForm)
-    setProfile(p => ({ ...p, ...res.data.data }))
-    updateUser(res.data.data)
-    setEditMode(false)
-  }
-
   if (loading) return <p style={{ textAlign: 'center', padding: '60px', color: '#868e96' }}>불러오는 중...</p>
   if (!profile) return null
 
@@ -60,32 +50,19 @@ export default function UserProfile() {
             {profile.profileImage ? <img src={profile.profileImage} alt="" /> : <span>👤</span>}
           </div>
           <div className={styles.info}>
-            {editMode ? (
-              <form onSubmit={saveProfile} className={styles.editForm}>
-                <input value={editForm.nickname} onChange={e => setEditForm(f => ({ ...f, nickname: e.target.value }))} placeholder="닉네임" required />
-                <textarea value={editForm.bio} onChange={e => setEditForm(f => ({ ...f, bio: e.target.value }))} placeholder="자기소개" rows={2} />
-                <div className={styles.editActions}>
-                  <button type="button" className="btn-secondary btn-sm" onClick={() => setEditMode(false)}>취소</button>
-                  <button type="submit" className="btn-primary btn-sm">저장</button>
-                </div>
-              </form>
-            ) : (
-              <>
-                <h2>{profile.nickname}</h2>
-                {profile.bio && <p className={styles.bio}>{profile.bio}</p>}
-                <div className={styles.stats}>
-                  <span><b>{profile.recipeCount ?? recipes.length}</b> 레시피</span>
-                  <span><b>{profile.followerCount ?? 0}</b> 팔로워</span>
-                  <span><b>{profile.followingCount ?? 0}</b> 팔로잉</span>
-                </div>
-                {isMe ? (
-                  <button className="btn-secondary btn-sm" onClick={() => { setEditMode(true); setEditForm({ nickname: profile.nickname, bio: profile.bio || '' }) }}>프로필 수정</button>
-                ) : isLoggedIn && (
-                  <button className={profile.following ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'} onClick={toggleFollow}>
-                    {profile.following ? '팔로잉' : '팔로우'}
-                  </button>
-                )}
-              </>
+            <h2>{profile.nickname}</h2>
+            {profile.bio && <p className={styles.bio}>{profile.bio}</p>}
+            <div className={styles.stats}>
+              <span><b>{profile.recipeCount ?? recipes.length}</b> 레시피</span>
+              <span><b>{profile.followerCount ?? 0}</b> 팔로워</span>
+              <span><b>{profile.followingCount ?? 0}</b> 팔로잉</span>
+            </div>
+            {isMe ? (
+              <button className="btn-secondary btn-sm" onClick={() => navigate('/profile/edit')}>프로필 수정</button>
+            ) : isLoggedIn && (
+              <button className={profile.following ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'} onClick={toggleFollow}>
+                {profile.following ? '팔로잉' : '팔로우'}
+              </button>
             )}
           </div>
         </div>

@@ -8,6 +8,7 @@ import com.babyrecipe.exception.BabyRecipeException;
 import com.babyrecipe.repository.FollowRepository;
 import com.babyrecipe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public UserResponse getUser(Long targetId, Long currentUserId) {
         User user = findUser(targetId);
@@ -39,6 +41,17 @@ public class UserService {
             }
         }
         user.updateProfile(request.getNickname(), request.getBio(), null);
+
+        if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+                throw BabyRecipeException.badRequest("현재 비밀번호를 입력해주세요.");
+            }
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                throw BabyRecipeException.badRequest("현재 비밀번호가 올바르지 않습니다.");
+            }
+            user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+
         return UserResponse.of(user,
             userRepository.countFollowers(userId),
             userRepository.countFollowing(userId),

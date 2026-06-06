@@ -9,6 +9,7 @@ import RecipeDetail from './pages/RecipeDetail'
 import RecipeForm from './pages/RecipeForm'
 import Feed from './pages/Feed'
 import UserProfile from './pages/UserProfile'
+import EditProfile from './pages/EditProfile'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/recipes/new" element={<PrivateRoute><RecipeForm /></PrivateRoute>} />
           <Route path="/recipes/:id/edit" element={<PrivateRoute><RecipeForm /></PrivateRoute>} />
           <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
+          <Route path="/profile/edit" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

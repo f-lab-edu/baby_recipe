@@ -72,4 +72,8 @@ public class User {
         if (bio != null) this.bio = bio;
         if (profileImage != null) this.profileImage = profileImage;
     }
+
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
 }
