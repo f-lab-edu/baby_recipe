@@ -158,8 +158,19 @@ public class RecipeExtractService {
     private RecipeExtractResponse parseResult(String jsonText) {
         try {
             String cleaned = jsonText.trim();
-            Matcher matcher = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```").matcher(cleaned);
-            if (matcher.find()) cleaned = matcher.group(1).trim();
+
+            // 코드블록 안의 JSON 추출
+            Matcher fenceMatcher = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```").matcher(cleaned);
+            if (fenceMatcher.find()) {
+                cleaned = fenceMatcher.group(1).trim();
+            } else {
+                // 코드블록 없이 앞뒤 텍스트가 붙은 경우 첫 { ~ 마지막 } 추출
+                int start = cleaned.indexOf('{');
+                int end = cleaned.lastIndexOf('}');
+                if (start != -1 && end != -1 && end > start) {
+                    cleaned = cleaned.substring(start, end + 1);
+                }
+            }
 
             if (cleaned.equals("null") || cleaned.isBlank()) {
                 throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
