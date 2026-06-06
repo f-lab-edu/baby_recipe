@@ -20,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -56,10 +57,29 @@ public class RecipeExtractService {
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .timeout(10_000)
                 .get();
-            String combined = "제목: " + doc.title()
-                + "\n설명: " + doc.select("meta[name=description]").attr("content")
-                + "\n본문:\n" + doc.body().text();
-            return combined.length() > 6000 ? combined.substring(0, 6000) : combined;
+
+            String ogImage = doc.select("meta[property=og:image]").attr("content");
+
+            List<String> imageUrls = doc.select("img[src]").stream()
+                .map(el -> el.attr("abs:src"))
+                .filter(src -> !src.isBlank() && src.startsWith("http") && !src.contains("emoji") && !src.contains("icon"))
+                .distinct()
+                .limit(25)
+                .collect(Collectors.toList());
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("제목: ").append(doc.title()).append("\n");
+            sb.append("설명: ").append(doc.select("meta[name=description]").attr("content")).append("\n");
+            if (!ogImage.isBlank()) sb.append("대표이미지URL: ").append(ogImage).append("\n");
+            sb.append("본문:\n").append(doc.body().text()).append("\n");
+            if (!imageUrls.isEmpty()) {
+                sb.append("\n[페이지 이미지 목록 - 순서대로]\n");
+                for (int i = 0; i < imageUrls.size(); i++) {
+                    sb.append("이미지").append(i + 1).append(": ").append(imageUrls.get(i)).append("\n");
+                }
+            }
+            String result = sb.toString();
+            return result.length() > 8000 ? result.substring(0, 8000) : result;
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -113,8 +133,9 @@ public class RecipeExtractService {
               "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
               "cookingTime": 조리시간(분, 숫자 또는 null),
               "servings": 인분수(숫자 또는 null),
+              "imageUrl": "대표이미지URL (대표이미지URL 또는 페이지 이미지 목록에서 완성된 요리 사진으로 가장 적합한 것, 없으면 null)",
               "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
-              "steps": [{"order": 1, "description": "조리 단계 설명"}],
+              "steps": [{"order": 1, "description": "조리 단계 설명", "imageUrl": "해당 단계에 맞는 이미지 URL (페이지 이미지 목록에서 순서상 해당 단계에 해당하는 것, 없으면 null)"}],
               "tags": ["태그1", "태그2"]
             }
 

@@ -224,12 +224,25 @@ export default function RecipeForm() {
             {form.steps.map((step, i) => (
               <div key={i} className={styles.stepRow}>
                 <span className={styles.stepNum}>{i + 1}</span>
-                <textarea
-                  placeholder={`${i + 1}단계 설명`}
-                  value={step.description}
-                  onChange={e => updateStep(i, 'description', e.target.value)}
-                  rows={2}
-                />
+                <div className={styles.stepContent}>
+                  <textarea
+                    placeholder={`${i + 1}단계 설명`}
+                    value={step.description}
+                    onChange={e => updateStep(i, 'description', e.target.value)}
+                    rows={2}
+                  />
+                  <div className={styles.stepImageRow}>
+                    {step.imageUrl && (
+                      <img src={step.imageUrl} alt={`${i + 1}단계`} className={styles.stepThumb} onError={e => e.target.style.display='none'} />
+                    )}
+                    <input
+                      placeholder="단계 이미지 URL (선택)"
+                      value={step.imageUrl || ''}
+                      onChange={e => updateStep(i, 'imageUrl', e.target.value)}
+                      className={styles.stepImageInput}
+                    />
+                  </div>
+                </div>
                 {form.steps.length > 1 && (
                   <button type="button" className="btn-danger btn-sm" onClick={() => setForm(f => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }))}>✕</button>
                 )}

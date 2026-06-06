@@ -27,5 +27,6 @@ public class RecipeExtractResponse {
     public static class StepItem {
         private Integer order;
         private String description;
+        private String imageUrl;
     }
 }
