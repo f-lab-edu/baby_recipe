@@ -65,7 +65,7 @@ npm install    # 최초 1회만
 npm run dev
 ```
 
-- 실행 주소: `http://localhost:5173`
+- 실행 주소: `http://localhost:3000`
 
 ---
 
