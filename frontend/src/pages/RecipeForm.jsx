@@ -1,7 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/axios'
 import styles from './RecipeForm.module.css'
+
+// 이미지 파일을 업로드하고 URL을 반환하는 공용 컴포넌트
+function ImageUploadInput({ value, onChange, placeholder = '사진 추가' }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef(null)
+
+  const handleFile = async e => {
+    const file = e.target.files[0]
+    if (!file) return
+    setError('')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onChange(res.data.data.imageUrl)
+    } catch (err) {
+      setError(err.response?.data?.message || '이미지 업로드에 실패했습니다.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleRemove = () => {
+    onChange('')
+    setError('')
+  }
+
+  return (
+    <div className={styles.imageUpload}>
+      {value ? (
+        <div className={styles.imagePreviewWrap}>
+          <img
+            src={value}
+            alt="미리보기"
+            className={styles.imagePreview}
+            onClick={() => inputRef.current?.click()}
+            title="클릭하여 이미지 교체"
+          />
+          <button type="button" className={styles.imageRemoveBtn} onClick={handleRemove}>✕</button>
+          {uploading && <div className={styles.imageUploading}>교체 중...</div>}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={styles.imageAddBtn}
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? '업로드 중...' : `+ ${placeholder}`}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+      {error && <p className={styles.imageError}>{error}</p>}
+    </div>
+  )
+}
 
 function UrlExtractor({ onExtracted }) {
   const [url, setUrl] = useState('')
@@ -186,7 +253,7 @@ export default function RecipeForm() {
       category: data.category || f.category,
       cookingTime: data.cookingTime ?? f.cookingTime,
       servings: data.servings ?? f.servings,
-      imageUrl: data.imageUrl || f.imageUrl,
+      imageUrl: f.imageUrl || data.imageUrl,
       tags: data.tags?.join(', ') || f.tags,
       ingredients: data.ingredients?.length ? data.ingredients : f.ingredients,
       steps: data.steps?.length ? data.steps : f.steps,
@@ -271,6 +338,14 @@ export default function RecipeForm() {
 
           <section className={styles.section}>
             <h2>기본 정보</h2>
+            <div>
+              <p className={styles.fieldLabel}>대표 이미지</p>
+              <ImageUploadInput
+                value={form.imageUrl}
+                onChange={url => setField('imageUrl', url)}
+                placeholder="대표 이미지 업로드"
+              />
+            </div>
             <label>제목 *<input value={form.title} onChange={e => setField('title', e.target.value)} required maxLength={100} /></label>
             <label>설명<textarea value={form.description} onChange={e => setField('description', e.target.value)} rows={3} maxLength={500} /></label>
             <div className={styles.row}>
@@ -289,7 +364,6 @@ export default function RecipeForm() {
               <label>조리시간(분)<input type="number" value={form.cookingTime} onChange={e => setField('cookingTime', e.target.value)} min={1} /></label>
               <label>인분<input type="number" value={form.servings} onChange={e => setField('servings', e.target.value)} min={1} /></label>
             </div>
-            <label>이미지 URL<input value={form.imageUrl} onChange={e => setField('imageUrl', e.target.value)} placeholder="https://..." /></label>
             <label>태그 (쉼표로 구분)<input value={form.tags} onChange={e => setField('tags', e.target.value)} placeholder="이유식, 간식, 쉬운레시피" /></label>
           </section>
 
@@ -318,12 +392,19 @@ export default function RecipeForm() {
             {form.steps.map((step, i) => (
               <div key={i} className={styles.stepRow}>
                 <span className={styles.stepNum}>{i + 1}</span>
-                <textarea
-                  placeholder={`${i + 1}단계 설명`}
-                  value={step.description}
-                  onChange={e => updateStep(i, 'description', e.target.value)}
-                  rows={2}
-                />
+                <div className={styles.stepContent}>
+                  <textarea
+                    placeholder={`${i + 1}단계 설명`}
+                    value={step.description}
+                    onChange={e => updateStep(i, 'description', e.target.value)}
+                    rows={2}
+                  />
+                  <ImageUploadInput
+                    value={step.imageUrl}
+                    onChange={url => updateStep(i, 'imageUrl', url)}
+                    placeholder="단계 사진 추가 (선택)"
+                  />
+                </div>
                 {form.steps.length > 1 && (
                   <button type="button" className="btn-danger btn-sm" onClick={() => setForm(f => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }))}>✕</button>
                 )}
