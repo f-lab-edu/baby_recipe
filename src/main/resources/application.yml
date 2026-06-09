@@ -27,6 +27,7 @@ jwt:
 
 app:
   upload-dir: ${UPLOAD_DIR:uploads}
+  base-url: ${BASE_URL:http://localhost:8080}
 
 anthropic:
   api-key: ${ANTHROPIC_API_KEY:}
