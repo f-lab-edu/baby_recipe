@@ -264,6 +264,8 @@ public class RecipeExtractService {
 
             if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
                 response.setImageUrl(savedUrls.get(finishedIdx - 1));
+            } else {
+                response.setImageUrl(savedUrls.get(0));
             }
 
             // stepImageIndex → step.imageUrl 매핑
@@ -307,6 +309,8 @@ public class RecipeExtractService {
             throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
         }
 
+        cleaned = repairJson(cleaned);
+
         JsonNode node = objectMapper.readTree(cleaned);
         if (node.isArray()) {
             log.warn("Claude가 배열로 응답함 - 첫 번째 요소 사용");
@@ -314,6 +318,12 @@ public class RecipeExtractService {
             node = node.get(0);
         }
         return node;
+    }
+
+    // 배열 요소 사이 누락된 쉼표 보정 (Claude가 간헐적으로 생략하는 케이스 처리)
+    private String repairJson(String json) {
+        return json.replaceAll("\\}(\\s*)(\\{)", "},$1$2")
+                   .replaceAll("\\](\\s*)(\\[)", "],$1$2");
     }
 
     // ── 내부 DTO ──────────────────────────────────────────────────────────────

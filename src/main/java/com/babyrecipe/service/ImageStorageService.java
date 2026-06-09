@@ -43,6 +43,17 @@ public class ImageStorageService {
         }
     }
 
+    public void delete(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) return;
+        try {
+            String filename = imageUrl.substring(imageUrl.lastIndexOf("/uploads/") + 9);
+            Path target = Paths.get(uploadDir).resolve(filename).normalize();
+            Files.deleteIfExists(target);
+        } catch (Exception e) {
+            log.warn("이미지 파일 삭제 실패: {}", imageUrl, e);
+        }
+    }
+
     private void validate(MultipartFile file) {
         if (file.isEmpty()) {
             throw BabyRecipeException.badRequest("빈 파일은 업로드할 수 없습니다.");
