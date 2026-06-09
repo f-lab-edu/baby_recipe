@@ -12,9 +12,22 @@
 .extractIcon { font-size: 28px; }
 .extractHeader h2 { font-size: 15px; font-weight: 700; color: #c2255c; margin-bottom: 4px; }
 .extractHeader p { font-size: 13px; color: #868e96; }
+.extractTabs { display: flex; gap: 0; margin-bottom: 14px; border-radius: 8px; overflow: hidden; border: 1px solid #fcc2d7; }
+.activeTab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; background: #ff7eb3; color: white; border: none; cursor: pointer; }
+.inactiveTab { flex: 1; padding: 8px; font-size: 13px; font-weight: 500; background: white; color: #868e96; border: none; cursor: pointer; }
+.inactiveTab:hover { background: #fff0f6; }
+
+.extractTab { display: flex; flex-direction: column; gap: 10px; }
 .extractForm { display: flex; gap: 8px; }
 .extractForm input { flex: 1; background: white; }
-.extractLoading { font-size: 13px; color: #ae3ec9; margin-top: 10px; }
+
+.imageExtractForm { display: flex; flex-direction: column; gap: 10px; }
+.fileLabel { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #495057; font-weight: 500; cursor: pointer; }
+.fileLabel input[type="file"] { font-size: 13px; }
+.previewGrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.previewImg { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid #fcc2d7; }
+
+.extractLoading { font-size: 13px; color: #ae3ec9; margin-top: 4px; }
 
 .form { display: flex; flex-direction: column; gap: 24px; }
 

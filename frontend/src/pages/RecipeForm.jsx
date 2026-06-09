@@ -23,14 +23,7 @@ function UrlExtractor({ onExtracted }) {
   }
 
   return (
-    <section className={styles.extractBox}>
-      <div className={styles.extractHeader}>
-        <span className={styles.extractIcon}>✨</span>
-        <div>
-          <h2>URL로 자동 추출</h2>
-          <p>블로그, 유튜브 등 SNS 링크를 붙여넣으면 AI가 레시피를 자동으로 채워드려요.</p>
-        </div>
-      </div>
+    <div className={styles.extractTab}>
       <form onSubmit={handleExtract} className={styles.extractForm}>
         <input
           type="url"
@@ -43,8 +36,109 @@ function UrlExtractor({ onExtracted }) {
           {loading ? '분석 중...' : 'AI 추출'}
         </button>
       </form>
-      {loading && <p className={styles.extractLoading}>🤖 AI가 레시피를 분석하고 있어요. 잠시만 기다려주세요...</p>}
+      {loading && <p className={styles.extractLoading}>AI가 레시피를 분석하고 있어요. 잠시만 기다려주세요...</p>}
       {error && <p className="error-msg">{error}</p>}
+    </div>
+  )
+}
+
+function ImageExtractor({ onExtracted }) {
+  const [files, setFiles] = useState([])
+  const [previews, setPreviews] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleFileChange = e => {
+    const selected = Array.from(e.target.files)
+    if (selected.length > 10) {
+      setError('이미지는 최대 10장까지 선택 가능합니다.')
+      return
+    }
+    setError('')
+    setFiles(selected)
+    setPreviews(selected.map(f => URL.createObjectURL(f)))
+  }
+
+  const handleExtract = async e => {
+    e.preventDefault()
+    if (files.length === 0) {
+      setError('이미지를 1장 이상 선택해주세요.')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      files.forEach(f => formData.append('images', f))
+      const res = await api.post('/recipes/extract/images', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onExtracted(res.data.data)
+    } catch (err) {
+      setError(err.response?.data?.message || '이미지에서 레시피를 가져올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className={styles.extractTab}>
+      <form onSubmit={handleExtract} className={styles.imageExtractForm}>
+        <label className={styles.fileLabel}>
+          사진 선택 (최대 10장, jpg/png/webp)
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={handleFileChange}
+          />
+        </label>
+        {previews.length > 0 && (
+          <div className={styles.previewGrid}>
+            {previews.map((src, i) => (
+              <img key={i} src={src} alt={`미리보기 ${i + 1}`} className={styles.previewImg} />
+            ))}
+          </div>
+        )}
+        <button type="submit" className="btn-primary" disabled={loading || files.length === 0}>
+          {loading ? '분석 중...' : 'AI 추출'}
+        </button>
+      </form>
+      {loading && <p className={styles.extractLoading}>AI가 사진을 분석하고 있어요. 잠시만 기다려주세요...</p>}
+      {error && <p className="error-msg">{error}</p>}
+    </div>
+  )
+}
+
+function AutoExtractor({ onExtracted }) {
+  const [tab, setTab] = useState('url')
+
+  return (
+    <section className={styles.extractBox}>
+      <div className={styles.extractHeader}>
+        <span className={styles.extractIcon}>✨</span>
+        <div>
+          <h2>AI로 자동 추출</h2>
+          <p>URL이나 사진을 올리면 AI가 레시피를 자동으로 채워드려요.</p>
+        </div>
+      </div>
+      <div className={styles.extractTabs}>
+        <button
+          type="button"
+          className={tab === 'url' ? styles.activeTab : styles.inactiveTab}
+          onClick={() => setTab('url')}
+        >
+          URL로 추출
+        </button>
+        <button
+          type="button"
+          className={tab === 'image' ? styles.activeTab : styles.inactiveTab}
+          onClick={() => setTab('image')}
+        >
+          사진으로 추출
+        </button>
+      </div>
+      {tab === 'url' ? <UrlExtractor onExtracted={onExtracted} /> : <ImageExtractor onExtracted={onExtracted} />}
     </section>
   )
 }
@@ -172,7 +266,7 @@ export default function RecipeForm() {
     <div className="page">
       <div className={`container ${styles.wrap}`}>
         <h1>{isEdit ? '레시피 수정' : '레시피 작성'}</h1>
-        {!isEdit && <UrlExtractor onExtracted={handleExtracted} />}
+        {!isEdit && <AutoExtractor onExtracted={handleExtracted} />}
         <form onSubmit={handleSubmit} className={styles.form}>
 
           <section className={styles.section}>
