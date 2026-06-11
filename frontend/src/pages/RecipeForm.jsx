@@ -1,7 +1,74 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/axios'
 import styles from './RecipeForm.module.css'
+
+// 이미지 파일을 업로드하고 URL을 반환하는 공용 컴포넌트
+function ImageUploadInput({ value, onChange, placeholder = '사진 추가' }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef(null)
+
+  const handleFile = async e => {
+    const file = e.target.files[0]
+    if (!file) return
+    setError('')
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('image', file)
+      const res = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onChange(res.data.data.imageUrl)
+    } catch (err) {
+      setError(err.response?.data?.message || '이미지 업로드에 실패했습니다.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleRemove = () => {
+    onChange('')
+    setError('')
+  }
+
+  return (
+    <div className={styles.imageUpload}>
+      {value ? (
+        <div className={styles.imagePreviewWrap}>
+          <img
+            src={value}
+            alt="미리보기"
+            className={styles.imagePreview}
+            onClick={() => inputRef.current?.click()}
+            title="클릭하여 이미지 교체"
+          />
+          <button type="button" className={styles.imageRemoveBtn} onClick={handleRemove}>✕</button>
+          {uploading && <div className={styles.imageUploading}>교체 중...</div>}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className={styles.imageAddBtn}
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? '업로드 중...' : `+ ${placeholder}`}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+      {error && <p className={styles.imageError}>{error}</p>}
+    </div>
+  )
+}
 
 function UrlExtractor({ onExtracted }) {
   const [url, setUrl] = useState('')
@@ -23,14 +90,7 @@ function UrlExtractor({ onExtracted }) {
   }
 
   return (
-    <section className={styles.extractBox}>
-      <div className={styles.extractHeader}>
-        <span className={styles.extractIcon}>✨</span>
-        <div>
-          <h2>URL로 자동 추출</h2>
-          <p>블로그, 유튜브 등 SNS 링크를 붙여넣으면 AI가 레시피를 자동으로 채워드려요.</p>
-        </div>
-      </div>
+    <div className={styles.extractTab}>
       <form onSubmit={handleExtract} className={styles.extractForm}>
         <input
           type="url"
@@ -43,8 +103,109 @@ function UrlExtractor({ onExtracted }) {
           {loading ? '분석 중...' : 'AI 추출'}
         </button>
       </form>
-      {loading && <p className={styles.extractLoading}>🤖 AI가 레시피를 분석하고 있어요. 잠시만 기다려주세요...</p>}
+      {loading && <p className={styles.extractLoading}>AI가 레시피를 분석하고 있어요. 잠시만 기다려주세요...</p>}
       {error && <p className="error-msg">{error}</p>}
+    </div>
+  )
+}
+
+function ImageExtractor({ onExtracted }) {
+  const [files, setFiles] = useState([])
+  const [previews, setPreviews] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleFileChange = e => {
+    const selected = Array.from(e.target.files)
+    if (selected.length > 10) {
+      setError('이미지는 최대 10장까지 선택 가능합니다.')
+      return
+    }
+    setError('')
+    setFiles(selected)
+    setPreviews(selected.map(f => URL.createObjectURL(f)))
+  }
+
+  const handleExtract = async e => {
+    e.preventDefault()
+    if (files.length === 0) {
+      setError('이미지를 1장 이상 선택해주세요.')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const formData = new FormData()
+      files.forEach(f => formData.append('images', f))
+      const res = await api.post('/recipes/extract/images', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      onExtracted(res.data.data)
+    } catch (err) {
+      setError(err.response?.data?.message || '이미지에서 레시피를 가져올 수 없습니다.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className={styles.extractTab}>
+      <form onSubmit={handleExtract} className={styles.imageExtractForm}>
+        <label className={styles.fileLabel}>
+          사진 선택 (최대 10장, jpg/png/webp)
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            onChange={handleFileChange}
+          />
+        </label>
+        {previews.length > 0 && (
+          <div className={styles.previewGrid}>
+            {previews.map((src, i) => (
+              <img key={i} src={src} alt={`미리보기 ${i + 1}`} className={styles.previewImg} />
+            ))}
+          </div>
+        )}
+        <button type="submit" className="btn-primary" disabled={loading || files.length === 0}>
+          {loading ? '분석 중...' : 'AI 추출'}
+        </button>
+      </form>
+      {loading && <p className={styles.extractLoading}>AI가 사진을 분석하고 있어요. 잠시만 기다려주세요...</p>}
+      {error && <p className="error-msg">{error}</p>}
+    </div>
+  )
+}
+
+function AutoExtractor({ onExtracted }) {
+  const [tab, setTab] = useState('url')
+
+  return (
+    <section className={styles.extractBox}>
+      <div className={styles.extractHeader}>
+        <span className={styles.extractIcon}>✨</span>
+        <div>
+          <h2>AI로 자동 추출</h2>
+          <p>URL이나 사진을 올리면 AI가 레시피를 자동으로 채워드려요.</p>
+        </div>
+      </div>
+      <div className={styles.extractTabs}>
+        <button
+          type="button"
+          className={tab === 'url' ? styles.activeTab : styles.inactiveTab}
+          onClick={() => setTab('url')}
+        >
+          URL로 추출
+        </button>
+        <button
+          type="button"
+          className={tab === 'image' ? styles.activeTab : styles.inactiveTab}
+          onClick={() => setTab('image')}
+        >
+          사진으로 추출
+        </button>
+      </div>
+      {tab === 'url' ? <UrlExtractor onExtracted={onExtracted} /> : <ImageExtractor onExtracted={onExtracted} />}
     </section>
   )
 }
@@ -92,7 +253,7 @@ export default function RecipeForm() {
       category: data.category || f.category,
       cookingTime: data.cookingTime ?? f.cookingTime,
       servings: data.servings ?? f.servings,
-      imageUrl: data.imageUrl || f.imageUrl,
+      imageUrl: f.imageUrl || data.imageUrl,
       tags: data.tags?.join(', ') || f.tags,
       ingredients: data.ingredients?.length ? data.ingredients : f.ingredients,
       steps: data.steps?.length ? data.steps : f.steps,
@@ -172,11 +333,19 @@ export default function RecipeForm() {
     <div className="page">
       <div className={`container ${styles.wrap}`}>
         <h1>{isEdit ? '레시피 수정' : '레시피 작성'}</h1>
-        {!isEdit && <UrlExtractor onExtracted={handleExtracted} />}
+        {!isEdit && <AutoExtractor onExtracted={handleExtracted} />}
         <form onSubmit={handleSubmit} className={styles.form}>
 
           <section className={styles.section}>
             <h2>기본 정보</h2>
+            <div>
+              <p className={styles.fieldLabel}>대표 이미지</p>
+              <ImageUploadInput
+                value={form.imageUrl}
+                onChange={url => setField('imageUrl', url)}
+                placeholder="대표 이미지 업로드"
+              />
+            </div>
             <label>제목 *<input value={form.title} onChange={e => setField('title', e.target.value)} required maxLength={100} /></label>
             <label>설명<textarea value={form.description} onChange={e => setField('description', e.target.value)} rows={3} maxLength={500} /></label>
             <div className={styles.row}>
@@ -195,7 +364,6 @@ export default function RecipeForm() {
               <label>조리시간(분)<input type="number" value={form.cookingTime} onChange={e => setField('cookingTime', e.target.value)} min={1} /></label>
               <label>인분<input type="number" value={form.servings} onChange={e => setField('servings', e.target.value)} min={1} /></label>
             </div>
-            <label>이미지 URL<input value={form.imageUrl} onChange={e => setField('imageUrl', e.target.value)} placeholder="https://..." /></label>
             <label>태그 (쉼표로 구분)<input value={form.tags} onChange={e => setField('tags', e.target.value)} placeholder="이유식, 간식, 쉬운레시피" /></label>
           </section>
 
@@ -224,12 +392,19 @@ export default function RecipeForm() {
             {form.steps.map((step, i) => (
               <div key={i} className={styles.stepRow}>
                 <span className={styles.stepNum}>{i + 1}</span>
-                <textarea
-                  placeholder={`${i + 1}단계 설명`}
-                  value={step.description}
-                  onChange={e => updateStep(i, 'description', e.target.value)}
-                  rows={2}
-                />
+                <div className={styles.stepContent}>
+                  <textarea
+                    placeholder={`${i + 1}단계 설명`}
+                    value={step.description}
+                    onChange={e => updateStep(i, 'description', e.target.value)}
+                    rows={2}
+                  />
+                  <ImageUploadInput
+                    value={step.imageUrl}
+                    onChange={url => updateStep(i, 'imageUrl', url)}
+                    placeholder="단계 사진 추가 (선택)"
+                  />
+                </div>
                 {form.steps.length > 1 && (
                   <button type="button" className="btn-danger btn-sm" onClick={() => setForm(f => ({ ...f, steps: f.steps.filter((_, j) => j !== i) }))}>✕</button>
                 )}

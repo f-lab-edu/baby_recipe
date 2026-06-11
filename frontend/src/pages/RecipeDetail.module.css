@@ -35,7 +35,9 @@
 .steps { list-style: none; display: flex; flex-direction: column; gap: 16px; }
 .steps li { display: flex; gap: 14px; align-items: flex-start; }
 .stepNum { width: 28px; height: 28px; background: #ff7eb3; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.stepContent { display: flex; flex-direction: column; gap: 8px; }
 .steps p { font-size: 14px; line-height: 1.7; padding-top: 4px; }
+.stepImage { max-width: 280px; border-radius: 8px; object-fit: cover; }
 
 .commentForm { display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-end; }
 .commentForm textarea { flex: 1; resize: none; }

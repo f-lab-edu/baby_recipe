@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -22,29 +22,26 @@ jobs:
           REPO_NAME=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 2)
           ORG_NAME=$(echo $GITHUB_REPOSITORY | cut -d '/' -f 1)
           SONAR_PROJECT_KEY="${ORG_NAME}_${REPO_NAME}"
-          echo "SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY" >> $GITHUB_ENV 
+          echo "SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY" >> $GITHUB_ENV
 
       - name: Set up JDK
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
-          java-version: '19'
-          distribution: 'adopt'
+          java-version: '17'
+          distribution: 'temurin'
 
       - name: Create Sonar Gradle File
         run: |
-          insert_string="plugins { id 'org.sonarqube' version '4.4.1.3373' }"
           if [ -f "build.gradle" ]; then
-            echo "$insert_string" > temp.gradle
-            cat build.gradle >> temp.gradle
-            echo "" >> temp.gradle
-            echo "sonarqube {" >> temp.gradle
-            echo "    properties {" >> temp.gradle
-            echo "        property 'sonar.java.binaries', '**'" >> temp.gradle
-            echo "    }" >> temp.gradle
-            echo "}" >> temp.gradle
-            mv temp.gradle build.gradle
+            sed -i "s/^plugins {/plugins {\n    id 'org.sonarqube' version '4.4.1.3373'/" build.gradle
+            echo "" >> build.gradle
+            echo "sonarqube {" >> build.gradle
+            echo "    properties {" >> build.gradle
+            echo "        property 'sonar.java.binaries', '**'" >> build.gradle
+            echo "    }" >> build.gradle
+            echo "}" >> build.gradle
           else
-            echo "$insert_string" > build.gradle
+            echo "plugins { id 'org.sonarqube' version '4.4.1.3373' }" > build.gradle
             echo "" >> build.gradle
             echo "sonarqube {" >> build.gradle
             echo "    properties {" >> build.gradle

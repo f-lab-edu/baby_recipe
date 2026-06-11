@@ -12,9 +12,22 @@
 .extractIcon { font-size: 28px; }
 .extractHeader h2 { font-size: 15px; font-weight: 700; color: #c2255c; margin-bottom: 4px; }
 .extractHeader p { font-size: 13px; color: #868e96; }
+.extractTabs { display: flex; gap: 0; margin-bottom: 14px; border-radius: 8px; overflow: hidden; border: 1px solid #fcc2d7; }
+.activeTab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; background: #ff7eb3; color: white; border: none; cursor: pointer; }
+.inactiveTab { flex: 1; padding: 8px; font-size: 13px; font-weight: 500; background: white; color: #868e96; border: none; cursor: pointer; }
+.inactiveTab:hover { background: #fff0f6; }
+
+.extractTab { display: flex; flex-direction: column; gap: 10px; }
 .extractForm { display: flex; gap: 8px; }
 .extractForm input { flex: 1; background: white; }
-.extractLoading { font-size: 13px; color: #ae3ec9; margin-top: 10px; }
+
+.imageExtractForm { display: flex; flex-direction: column; gap: 10px; }
+.fileLabel { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #495057; font-weight: 500; cursor: pointer; }
+.fileLabel input[type="file"] { font-size: 13px; }
+.previewGrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.previewImg { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid #fcc2d7; }
+
+.extractLoading { font-size: 13px; color: #ae3ec9; margin-top: 4px; }
 
 .form { display: flex; flex-direction: column; gap: 24px; }
 
@@ -40,7 +53,21 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color:
 
 .stepRow { display: flex; gap: 12px; align-items: flex-start; }
 .stepNum { width: 28px; height: 28px; background: #ff7eb3; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; margin-top: 10px; }
-.stepRow textarea { flex: 1; }
+.stepContent { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.stepContent textarea { width: 100%; }
+
+.fieldLabel { font-size: 13px; color: #495057; font-weight: 500; margin-bottom: 6px; }
+
+.imageUpload { display: flex; flex-direction: column; gap: 4px; }
+.imageAddBtn { align-self: flex-start; padding: 7px 14px; font-size: 13px; background: #f8f9fa; border: 1px dashed #ced4da; border-radius: 8px; color: #868e96; cursor: pointer; }
+.imageAddBtn:hover:not(:disabled) { background: #fff0f6; border-color: #ff7eb3; color: #c2255c; }
+.imageAddBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+.imagePreviewWrap { position: relative; display: inline-block; }
+.imagePreview { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #dee2e6; display: block; cursor: pointer; }
+.imagePreview:hover { opacity: 0.85; }
+.imageRemoveBtn { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; background: #fa5252; color: white; border: none; border-radius: 50%; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.imageUploading { position: absolute; inset: 0; background: rgba(0,0,0,0.4); color: white; font-size: 11px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.imageError { font-size: 12px; color: #fa5252; }
 
 .submit { display: flex; justify-content: flex-end; gap: 10px; }
 .submit button { padding: 10px 24px; }

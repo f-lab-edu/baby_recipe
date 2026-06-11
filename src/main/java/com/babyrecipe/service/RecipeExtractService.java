@@ -2,23 +2,27 @@ package com.babyrecipe.service;
 
 import com.babyrecipe.dto.response.RecipeExtractResponse;
 import com.babyrecipe.exception.BabyRecipeException;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,6 +39,9 @@ public class RecipeExtractService {
     private String model;
 
     private final ObjectMapper objectMapper;
+    private final ImageStorageService imageStorageService;
+
+    // ── URL 기반 추출 ──────────────────────────────────────────────────────────
 
     public RecipeExtractResponse extract(String url) {
         if (apiKey == null || apiKey.isBlank()) {
@@ -42,20 +49,41 @@ public class RecipeExtractService {
         }
         log.debug("레시피 추출 시작: url={}, model={}", url, model);
         String content = fetchContent(url);
-        String jsonText = callClaude(url, content);
+        String jsonText = callClaudeText(url, content);
         log.debug("Claude 응답: {}", jsonText);
         return parseResult(jsonText);
     }
 
+    // ── 이미지 기반 추출 ───────────────────────────────────────────────────────
+
+    public RecipeExtractResponse extractFromImages(List<MultipartFile> images) {
+        if (apiKey == null || apiKey.isBlank()) {
+            throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
+        }
+        if (images == null || images.isEmpty()) {
+            throw BabyRecipeException.badRequest("이미지를 1장 이상 업로드해주세요.");
+        }
+        if (images.size() > 10) {
+            throw BabyRecipeException.badRequest("이미지는 최대 10장까지 업로드 가능합니다.");
+        }
+
+        List<String> savedUrls = images.stream()
+            .map(imageStorageService::save)
+            .toList();
+
+        String jsonText = callClaudeVision(images, savedUrls.size());
+        log.debug("Claude Vision 응답: {}", jsonText);
+        return parseVisionResult(jsonText, savedUrls);
+    }
+
+    // ── URL fetch ─────────────────────────────────────────────────────────────
+
     private String fetchContent(String url) {
         try {
-            if (isYouTube(url)) {
-                return fetchYouTubeMeta(url);
-            }
+            if (isYouTube(url)) return fetchYouTubeMeta(url);
             Document doc = Jsoup.connect(url)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .timeout(10_000)
-                .get();
+                .timeout(10_000).get();
             String combined = "제목: " + doc.title()
                 + "\n설명: " + doc.select("meta[name=description]").attr("content")
                 + "\n본문:\n" + doc.body().text();
@@ -96,7 +124,9 @@ public class RecipeExtractService {
         return url.contains("youtube.com") || url.contains("youtu.be");
     }
 
-    private String callClaude(String url, String content) {
+    // ── Claude API 호출 (텍스트) ───────────────────────────────────────────────
+
+    private String callClaudeText(String url, String content) {
         String prompt = """
             당신은 이유식/아기 레시피 추출 전문가입니다.
             아래 웹페이지 내용에서 레시피 정보를 추출하여 JSON으로만 응답해주세요.
@@ -124,13 +154,63 @@ public class RecipeExtractService {
             레시피를 찾을 수 없으면 null을 반환하세요.
             """.formatted(url, content);
 
-        try {
-            ClaudeRequestBody body = new ClaudeRequestBody();
-            body.setModel(model);
-            body.setMaxTokens(2048);
-            body.setMessages(List.of(new ClaudeRequestBody.Message("user", prompt)));
+        return callClaude(List.of(new ClaudeMessage("user", prompt)));
+    }
 
+    // ── Claude API 호출 (Vision) ───────────────────────────────────────────────
+
+    private String callClaudeVision(List<MultipartFile> images, int count) {
+        List<ContentBlock> blocks = new ArrayList<>();
+
+        for (MultipartFile image : images) {
+            try {
+                String mediaType = image.getContentType() != null ? image.getContentType() : "image/jpeg";
+                String base64 = Base64.getEncoder().encodeToString(image.getBytes());
+                blocks.add(ContentBlock.image(mediaType, base64));
+            } catch (Exception e) {
+                log.error("이미지 base64 변환 실패", e);
+                throw BabyRecipeException.badRequest("이미지를 읽을 수 없습니다.");
+            }
+        }
+
+        String prompt = """
+            당신은 이유식/아기 레시피 추출 전문가입니다.
+            총 %d장의 이미지를 분석하여 레시피 정보를 추출해주세요.
+            이미지에 번호를 1번부터 순서대로 붙입니다.
+
+            완성된 음식이 접시에 담겨 플레이팅된 사진(완성본)이 있다면 해당 이미지 번호를 finishedImageIndex에 기재해주세요.
+            각 조리 단계와 관련된 이미지가 있다면 해당 step의 stepImageIndex에 이미지 번호를 기재해주세요.
+
+            다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
+            {
+              "title": "레시피 제목",
+              "description": "간단한 설명 (2~3문장)",
+              "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
+              "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
+              "cookingTime": 조리시간(분, 숫자 또는 null),
+              "servings": 인분수(숫자 또는 null),
+              "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
+              "steps": [{"order": 1, "description": "조리 단계 설명", "stepImageIndex": 이미지번호또는null}],
+              "tags": ["태그1", "태그2"],
+              "finishedImageIndex": 완성본이미지번호또는null
+            }
+
+            연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
+            카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
+            반드시 단일 JSON 객체로만 응답하세요 (배열 [] 사용 금지).
+            """.formatted(count);
+
+        blocks.add(ContentBlock.text(prompt));
+        return callClaude(List.of(new ClaudeMessage("user", blocks)));
+    }
+
+    // ── 공통 Claude HTTP 호출 ──────────────────────────────────────────────────
+
+    private String callClaude(List<ClaudeMessage> messages) {
+        try {
+            ClaudeRequestBody body = new ClaudeRequestBody(model, 2048, messages);
             String requestJson = objectMapper.writeValueAsString(body);
+
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.anthropic.com/v1/messages"))
@@ -138,7 +218,7 @@ public class RecipeExtractService {
                 .header("x-api-key", apiKey)
                 .header("anthropic-version", "2023-06-01")
                 .POST(HttpRequest.BodyPublishers.ofString(requestJson))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(Duration.ofSeconds(120))
                 .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -158,34 +238,11 @@ public class RecipeExtractService {
         }
     }
 
+    // ── 파싱 ──────────────────────────────────────────────────────────────────
+
     private RecipeExtractResponse parseResult(String jsonText) {
         try {
-            String cleaned = jsonText.trim();
-
-            // 코드블록 안의 JSON 추출
-            Matcher fenceMatcher = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```").matcher(cleaned);
-            if (fenceMatcher.find()) {
-                cleaned = fenceMatcher.group(1).trim();
-            } else {
-                // 코드블록 없이 앞뒤 텍스트가 붙은 경우 첫 { ~ 마지막 } 추출
-                int start = cleaned.indexOf('{');
-                int end = cleaned.lastIndexOf('}');
-                if (start != -1 && end != -1 && end > start) {
-                    cleaned = cleaned.substring(start, end + 1);
-                }
-            }
-
-            if (cleaned.equals("null") || cleaned.isBlank()) {
-                throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
-            }
-
-            // Claude가 배열로 응답한 경우 첫 번째 요소 사용
-            JsonNode node = objectMapper.readTree(cleaned);
-            if (node.isArray()) {
-                log.warn("Claude가 배열로 응답함 (프롬프트 지시 미준수) - 첫 번째 요소 사용");
-                if (node.isEmpty()) throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
-                node = node.get(0);
-            }
+            JsonNode node = extractJsonNode(jsonText);
             return objectMapper.treeToValue(node, RecipeExtractResponse.class);
         } catch (BabyRecipeException e) {
             throw e;
@@ -195,21 +252,144 @@ public class RecipeExtractService {
         }
     }
 
+    private RecipeExtractResponse parseVisionResult(String jsonText, List<String> savedUrls) {
+        try {
+            JsonNode node = extractJsonNode(jsonText);
+
+            // finishedImageIndex → imageUrl 매핑 (1-based)
+            Integer finishedIdx = node.hasNonNull("finishedImageIndex")
+                ? node.get("finishedImageIndex").asInt() : null;
+
+            RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+
+            if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
+                response.setImageUrl(savedUrls.get(finishedIdx - 1));
+            } else {
+                response.setImageUrl(savedUrls.get(0));
+            }
+
+            // stepImageIndex → step.imageUrl 매핑
+            if (response.getSteps() != null) {
+                JsonNode stepsNode = node.get("steps");
+                for (int i = 0; i < response.getSteps().size(); i++) {
+                    JsonNode stepNode = stepsNode != null ? stepsNode.get(i) : null;
+                    if (stepNode != null && stepNode.hasNonNull("stepImageIndex")) {
+                        int stepImgIdx = stepNode.get("stepImageIndex").asInt();
+                        if (stepImgIdx >= 1 && stepImgIdx <= savedUrls.size()) {
+                            response.getSteps().get(i).setImageUrl(savedUrls.get(stepImgIdx - 1));
+                        }
+                    }
+                }
+            }
+
+            return response;
+        } catch (BabyRecipeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Vision 레시피 JSON 파싱 실패: {}", jsonText, e);
+            throw BabyRecipeException.badRequest("이미지에서 레시피 정보를 추출할 수 없습니다.");
+        }
+    }
+
+    private JsonNode extractJsonNode(String jsonText) throws Exception {
+        String cleaned = jsonText.trim();
+
+        Matcher fenceMatcher = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```").matcher(cleaned);
+        if (fenceMatcher.find()) {
+            cleaned = fenceMatcher.group(1).trim();
+        } else {
+            int start = cleaned.indexOf('{');
+            int end = cleaned.lastIndexOf('}');
+            if (start != -1 && end != -1 && end > start) {
+                cleaned = cleaned.substring(start, end + 1);
+            }
+        }
+
+        if (cleaned.equals("null") || cleaned.isBlank()) {
+            throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
+        }
+
+        cleaned = repairJson(cleaned);
+
+        JsonNode node = objectMapper.readTree(cleaned);
+        if (node.isArray()) {
+            log.warn("Claude가 배열로 응답함 - 첫 번째 요소 사용");
+            if (node.isEmpty()) throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
+            node = node.get(0);
+        }
+        return node;
+    }
+
+    // 배열 요소 사이 누락된 쉼표 보정 (Claude가 간헐적으로 생략하는 케이스 처리)
+    private String repairJson(String json) {
+        return json.replaceAll("\\}(\\s*)(\\{)", "},$1$2")
+                   .replaceAll("\\](\\s*)(\\[)", "],$1$2");
+    }
+
+    // ── 내부 DTO ──────────────────────────────────────────────────────────────
+
     @Data
     static class ClaudeRequestBody {
         private String model;
         @JsonProperty("max_tokens")
         private int maxTokens;
-        private List<Message> messages;
+        private List<ClaudeMessage> messages;
 
-        @Data
-        static class Message {
-            private String role;
-            private String content;
-            Message(String role, String content) {
-                this.role = role;
-                this.content = content;
-            }
+        ClaudeRequestBody(String model, int maxTokens, List<ClaudeMessage> messages) {
+            this.model = model;
+            this.maxTokens = maxTokens;
+            this.messages = messages;
+        }
+    }
+
+    @Data
+    static class ClaudeMessage {
+        private String role;
+        private Object content; // String (text-only) or List<ContentBlock> (vision)
+
+        ClaudeMessage(String role, String textContent) {
+            this.role = role;
+            this.content = textContent;
+        }
+
+        ClaudeMessage(String role, List<ContentBlock> blocks) {
+            this.role = role;
+            this.content = blocks;
+        }
+    }
+
+    @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    static class ContentBlock {
+        private String type;
+        private String text;
+        private ImageSource source;
+
+        static ContentBlock text(String text) {
+            ContentBlock b = new ContentBlock();
+            b.type = "text";
+            b.text = text;
+            return b;
+        }
+
+        static ContentBlock image(String mediaType, String base64Data) {
+            ContentBlock b = new ContentBlock();
+            b.type = "image";
+            b.source = new ImageSource(mediaType, base64Data);
+            return b;
+        }
+    }
+
+    @Data
+    static class ImageSource {
+        private final String type = "base64";
+        @JsonProperty("media_type")
+        private String mediaType;
+        private String data;
+
+        ImageSource(String mediaType, String data) {
+            this.mediaType = mediaType;
+            this.data = data;
         }
     }
 }

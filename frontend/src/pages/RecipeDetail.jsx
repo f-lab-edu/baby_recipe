@@ -124,7 +124,10 @@ export default function RecipeDetail() {
                 {recipe.steps.map(step => (
                   <li key={step.order}>
                     <span className={styles.stepNum}>{step.order}</span>
-                    <p>{step.description}</p>
+                    <div className={styles.stepContent}>
+                      <p>{step.description}</p>
+                      {step.imageUrl && <img src={step.imageUrl} alt={`${step.order}단계`} className={styles.stepImage} />}
+                    </div>
                   </li>
                 ))}
               </ol>

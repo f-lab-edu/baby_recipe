@@ -8,6 +8,7 @@ import com.babyrecipe.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class RecipeService {
     private final TagRepository tagRepository;
     private final LikeRepository likeRepository;
     private final BookmarkRepository bookmarkRepository;
+    private final ImageStorageService imageStorageService;
 
     public Page<RecipeResponse> getRecipes(Recipe.AgeGroup ageGroup, Recipe.Category category,
                                            String keyword, Pageable pageable, Long currentUserId) {
@@ -42,6 +44,7 @@ public class RecipeService {
         Recipe recipe = Recipe.builder()
             .title(request.getTitle())
             .description(request.getDescription())
+            .imageUrl(request.getImageUrl())
             .ageGroup(request.getAgeGroup())
             .category(request.getCategory())
             .cookingTime(request.getCookingTime())
@@ -74,7 +77,7 @@ public class RecipeService {
         Recipe recipe = findRecipe(recipeId);
         checkAuthor(recipe, userId);
 
-        recipe.update(request.getTitle(), request.getDescription(), null,
+        recipe.update(request.getTitle(), request.getDescription(), request.getImageUrl(),
             request.getCookingTime(), request.getServings(),
             request.getAgeGroup(), request.getCategory());
 
@@ -96,6 +99,13 @@ public class RecipeService {
         if (!recipe.getAuthor().getId().equals(userId) && user.getRole() != User.Role.ADMIN) {
             throw BabyRecipeException.forbidden();
         }
+
+        // 레시피 삭제 전 연결된 이미지 파일 제거
+        Stream.concat(
+            Stream.of(recipe.getImageUrl()),
+            recipe.getSteps().stream().map(RecipeStep::getImageUrl)
+        ).forEach(imageStorageService::delete);
+
         recipeRepository.delete(recipe);
     }
 
