@@ -22,7 +22,7 @@
   - AMI: Amazon Linux 2023
   - 유형: t2.micro (프리 티어)
   - 스토리지: 20~30GB gp3
-- **퍼블릭 IP**: `52.79.250.185`
+- **퍼블릭 IP**: `<EC2_PUBLIC_IP>`
   - ⚠️ 인스턴스 중지 후 재시작하면 IP가 바뀜! 바뀌면 ssh 명령어의 IP도 변경 필요
 - **키 페어**: `babyrecipe-key.pem` → WSL 홈(`~/`)에 보관, `chmod 400` 적용됨
 - **보안 그룹 인바운드 규칙**:
@@ -35,7 +35,7 @@
 ### 접속 명령어 (재접속 시)
 ```bash
 cd ~
-ssh -i babyrecipe-key.pem ec2-user@52.79.250.185
+ssh -i babyrecipe-key.pem ec2-user@<EC2_PUBLIC_IP>
 ```
 
 ### SSH 트러블슈팅 메모
@@ -85,7 +85,7 @@ ssh -i babyrecipe-key.pem ec2-user@52.79.250.185
 
 2. **jar를 EC2로 전송**:
    ```bash
-   scp -i ~/babyrecipe-key.pem build/libs/babyrecipe-0.0.1-SNAPSHOT.jar ec2-user@52.79.250.185:~/app.jar
+   scp -i ~/babyrecipe-key.pem build/libs/babyrecipe-0.0.1-SNAPSHOT.jar ec2-user@<EC2_PUBLIC_IP>:~/app.jar
    ```
    (또는 EC2에서 git clone 후 서버에서 빌드해도 됨 — 단 t2.micro는 메모리가 작아 빌드가 느리거나 실패할 수 있어 scp 방식 추천)
 
@@ -111,7 +111,7 @@ ssh -i babyrecipe-key.pem ec2-user@52.79.250.185
    - 프로세스 확인: `ps -ef | grep java`
    - 종료: `kill <PID>`
 
-5. **접속 확인**: 브라우저에서 `http://52.79.250.185:8080`
+5. **접속 확인**: 브라우저에서 `http://<EC2_PUBLIC_IP>:8080`
 
 ### 5단계에서 막히기 쉬운 지점
 - 앱이 뜨다가 죽음 → app.log 확인. 대부분 DB 연결 실패 (RDS 보안 그룹 3306 규칙 또는 환경변수 오타)
