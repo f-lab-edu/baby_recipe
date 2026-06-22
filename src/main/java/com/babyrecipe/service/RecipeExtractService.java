@@ -41,6 +41,8 @@ public class RecipeExtractService {
     private final ObjectMapper objectMapper;
     private final ImageStorageService imageStorageService;
 
+    private record PageContent(String text, List<String> imageEntries) {}
+
     // ── URL 기반 추출 ──────────────────────────────────────────────────────────
 
     public RecipeExtractResponse extract(String url) {
@@ -48,8 +50,8 @@ public class RecipeExtractService {
             throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
         }
         log.debug("레시피 추출 시작: url={}, model={}", url, model);
-        String content = fetchContent(url);
-        String jsonText = callClaudeText(url, content);
+        PageContent page = fetchContent(url);
+        String jsonText = callClaudeText(url, page);
         log.debug("Claude 응답: {}", jsonText);
         return parseResult(jsonText);
     }
@@ -78,16 +80,59 @@ public class RecipeExtractService {
 
     // ── URL fetch ─────────────────────────────────────────────────────────────
 
-    private String fetchContent(String url) {
+    private PageContent fetchContent(String url) {
         try {
             if (isYouTube(url)) return fetchYouTubeMeta(url);
             Document doc = Jsoup.connect(url)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .timeout(10_000).get();
+
+            List<String> imageEntries = new ArrayList<>();
+            int idx = 1;
+
+            // og:image를 첫 번째로 (대표/완성본 이미지일 가능성이 높음)
+            String ogImage = doc.select("meta[property=og:image]").attr("content");
+            if (!ogImage.isBlank()) {
+                imageEntries.add("[" + idx++ + "] " + ogImage + " (대표 이미지)");
+            }
+
+            // img 태그 수집 (lazy-load 포함, 최대 15장)
+            for (org.jsoup.nodes.Element img : doc.select("img")) {
+                if (idx > 16) break;
+                String src = java.util.stream.Stream.of("src", "data-src", "data-lazy", "data-lazy-src", "data-original")
+                    .map(img::attr)
+                    .filter(s -> !s.isBlank() && !s.startsWith("data:"))
+                    .findFirst()
+                    .map(s -> s.startsWith("http") ? s : img.absUrl("src"))
+                    .orElse("");
+                if (src.isBlank() || src.equals(ogImage)) continue;
+
+                // alt → 없으면 부모/형제 텍스트로 주변 맥락 추출
+                String context = img.attr("alt").trim();
+                if (context.isBlank()) {
+                    org.jsoup.nodes.Element el = img.parent();
+                    outer:
+                    for (int depth = 0; depth < 3 && el != null; depth++) {
+                        String own = el.ownText().trim();
+                        if (!own.isBlank() && own.length() < 120) { context = own; break; }
+                        for (org.jsoup.nodes.Element sib : el.children()) {
+                            if (sib.select("img").first() != null) continue;
+                            String t = sib.text().trim();
+                            if (!t.isBlank() && t.length() < 120) { context = t; break outer; }
+                        }
+                        el = el.parent();
+                    }
+                }
+                if (context.length() > 80) context = context.substring(0, 80);
+                imageEntries.add("[" + idx++ + "] " + src + (context.isBlank() ? "" : " (" + context + ")"));
+            }
+
             String combined = "제목: " + doc.title()
                 + "\n설명: " + doc.select("meta[name=description]").attr("content")
                 + "\n본문:\n" + doc.body().text();
-            return combined.length() > 6000 ? combined.substring(0, 6000) : combined;
+            String text = combined.length() > 6000 ? combined.substring(0, 6000) : combined;
+
+            return new PageContent(text, imageEntries);
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -96,13 +141,15 @@ public class RecipeExtractService {
         }
     }
 
-    private String fetchYouTubeMeta(String url) {
+    private PageContent fetchYouTubeMeta(String url) {
         try {
             String oembedUrl = "https://www.youtube.com/oembed?url=" + url + "&format=json";
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
             HttpRequest req = HttpRequest.newBuilder().uri(URI.create(oembedUrl)).GET().build();
             HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
-            String title = objectMapper.readTree(res.body()).path("title").asText("");
+            JsonNode oembedNode = objectMapper.readTree(res.body());
+            String title = oembedNode.path("title").asText("");
+            String thumbnailUrl = oembedNode.path("thumbnail_url").asText("");
 
             String metaDesc = "";
             try {
@@ -112,7 +159,12 @@ public class RecipeExtractService {
                 metaDesc = doc.select("meta[name=description]").attr("content");
             } catch (Exception ignored) {}
 
-            return "YouTube 영상 제목: " + title + "\n영상 설명: " + metaDesc;
+            List<String> imageEntries = new ArrayList<>();
+            if (!thumbnailUrl.isBlank()) {
+                imageEntries.add("[1] " + thumbnailUrl + " (썸네일/완성본)");
+            }
+
+            return new PageContent("YouTube 영상 제목: " + title + "\n영상 설명: " + metaDesc, imageEntries);
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -126,14 +178,22 @@ public class RecipeExtractService {
 
     // ── Claude API 호출 (텍스트) ───────────────────────────────────────────────
 
-    private String callClaudeText(String url, String content) {
+    private String callClaudeText(String url, PageContent page) {
+        String imageSection = "";
+        if (!page.imageEntries().isEmpty()) {
+            imageSection = "\n\n페이지 이미지 목록 (번호 → URL (설명)):\n"
+                + String.join("\n", page.imageEntries())
+                + "\n\n위 목록에서 완성된 음식 사진의 URL을 \"imageUrl\"에 넣고,"
+                + " 각 조리 단계에 맞는 이미지 URL을 step의 \"imageUrl\"에 넣어주세요. 없으면 null.";
+        }
+
         String prompt = """
             당신은 이유식/아기 레시피 추출 전문가입니다.
             아래 웹페이지 내용에서 레시피 정보를 추출하여 JSON으로만 응답해주세요.
 
             URL: %s
             내용:
-            %s
+            %s%s
 
             다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
             {
@@ -143,8 +203,9 @@ public class RecipeExtractService {
               "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
               "cookingTime": 조리시간(분, 숫자 또는 null),
               "servings": 인분수(숫자 또는 null),
+              "imageUrl": "완성본 이미지 URL (이미지 목록에서 선택, 없으면 null)",
               "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
-              "steps": [{"order": 1, "description": "조리 단계 설명"}],
+              "steps": [{"order": 1, "description": "조리 단계 설명", "imageUrl": "해당 단계 이미지 URL 또는 null"}],
               "tags": ["태그1", "태그2"]
             }
 
@@ -152,7 +213,7 @@ public class RecipeExtractService {
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
             반드시 단일 JSON 객체로만 응답하세요 (배열 [] 사용 금지).
             레시피를 찾을 수 없으면 null을 반환하세요.
-            """.formatted(url, content);
+            """.formatted(url, page.text(), imageSection);
 
         return callClaude(List.of(new ClaudeMessage("user", prompt)));
     }
