@@ -41,7 +41,14 @@ public class RecipeExtractService {
     private final ObjectMapper objectMapper;
     private final ImageStorageService imageStorageService;
 
-    private record PageContent(String text, List<String> imageEntries) {}
+    private record PageContent(String text, List<String> imageEntries, List<String> rawImageUrls, String structuredContent) {
+        PageContent(String text, List<String> imageEntries) {
+            this(text, imageEntries, List.of(), "");
+        }
+        PageContent(String text, List<String> imageEntries, List<String> rawImageUrls) {
+            this(text, imageEntries, rawImageUrls, "");
+        }
+    }
 
     // ── URL 기반 추출 ──────────────────────────────────────────────────────────
 
@@ -52,23 +59,36 @@ public class RecipeExtractService {
         log.debug("레시피 추출 시작: url={}, model={}", url, model);
         PageContent page = fetchContent(url);
         String jsonText = callClaudeText(url, page);
-        log.debug("Claude 응답: {}", jsonText);
+        log.info("Claude 응답: {}", jsonText);
         RecipeExtractResponse result = parseResult(jsonText);
-        return downloadExternalImages(result);
+        if (page.structuredContent().isBlank()) {
+            assignStepImagesSequentially(result, page.rawImageUrls());
+        }
+        return downloadExternalImages(result, url);
     }
 
-    private RecipeExtractResponse downloadExternalImages(RecipeExtractResponse response) {
+    private void assignStepImagesSequentially(RecipeExtractResponse response, List<String> stepImageCandidates) {
+        if (stepImageCandidates.isEmpty() || response.getSteps() == null) return;
+        boolean allNull = response.getSteps().stream().allMatch(s -> s.getImageUrl() == null);
+        if (!allNull) return;
+        for (int i = 0; i < response.getSteps().size() && i < stepImageCandidates.size(); i++) {
+            response.getSteps().get(i).setImageUrl(stepImageCandidates.get(i));
+        }
+        log.info("단계 이미지 순서 매핑: {}개", Math.min(response.getSteps().size(), stepImageCandidates.size()));
+    }
+
+    private RecipeExtractResponse downloadExternalImages(RecipeExtractResponse response, String pageUrl) {
         if (response.getImageUrl() != null && response.getImageUrl().startsWith("http")) {
-            log.debug("대표 이미지 다운로드: {}", response.getImageUrl());
-            String local = imageStorageService.saveFromUrl(response.getImageUrl());
-            response.setImageUrl(local);
+            log.info("대표 이미지 다운로드: {}", response.getImageUrl());
+            String local = imageStorageService.saveFromUrl(response.getImageUrl(), pageUrl);
+            if (local != null) response.setImageUrl(local);
         }
         if (response.getSteps() != null) {
             for (RecipeExtractResponse.StepItem step : response.getSteps()) {
                 if (step.getImageUrl() != null && step.getImageUrl().startsWith("http")) {
-                    log.debug("단계 이미지 다운로드: {}", step.getImageUrl());
-                    String local = imageStorageService.saveFromUrl(step.getImageUrl());
-                    step.setImageUrl(local);
+                    log.info("단계 이미지 다운로드: {}", step.getImageUrl());
+                    String local = imageStorageService.saveFromUrl(step.getImageUrl(), pageUrl);
+                    if (local != null) step.setImageUrl(local);
                 }
             }
         }
@@ -102,48 +122,54 @@ public class RecipeExtractService {
     private PageContent fetchContent(String url) {
         try {
             if (isYouTube(url)) return fetchYouTubeMeta(url);
-            Document doc = Jsoup.connect(url)
-                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            String fetchUrl = toMobileUrl(url);
+            Document doc = Jsoup.connect(fetchUrl)
+                .userAgent("Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+                .referrer(url)
                 .timeout(10_000).get();
 
-            List<String> imageEntries = new ArrayList<>();
-            int idx = 1;
-
-            // og:image를 첫 번째로 (대표/완성본 이미지일 가능성이 높음)
             String ogImage = doc.select("meta[property=og:image]").attr("content");
-            if (!ogImage.isBlank()) {
-                imageEntries.add("[" + idx++ + "] " + ogImage + " (대표 이미지)");
-            }
 
-            // img 태그 수집 (lazy-load 포함, 최대 15장)
-            for (org.jsoup.nodes.Element img : doc.select("img")) {
-                if (idx > 16) break;
-                String src = java.util.stream.Stream.of("src", "data-src", "data-lazy", "data-lazy-src", "data-original")
-                    .map(img::attr)
-                    .filter(s -> !s.isBlank() && !s.startsWith("data:"))
-                    .findFirst()
-                    .map(s -> s.startsWith("http") ? s : img.absUrl("src"))
-                    .orElse("");
-                if (src.isBlank() || src.equals(ogImage)) continue;
-
-                // alt → 없으면 부모/형제 텍스트로 주변 맥락 추출
-                String context = img.attr("alt").trim();
-                if (context.isBlank()) {
-                    org.jsoup.nodes.Element el = img.parent();
-                    outer:
-                    for (int depth = 0; depth < 3 && el != null; depth++) {
-                        String own = el.ownText().trim();
-                        if (!own.isBlank() && own.length() < 120) { context = own; break; }
-                        for (org.jsoup.nodes.Element sib : el.children()) {
-                            if (sib.select("img").first() != null) continue;
-                            String t = sib.text().trim();
-                            if (!t.isBlank() && t.length() < 120) { context = t; break outer; }
-                        }
-                        el = el.parent();
-                    }
+            List<String> imageEntries;
+            List<String> rawImageUrls = new ArrayList<>();
+            String structuredContent = "";
+            if (url.contains("blog.naver.com")) {
+                imageEntries = collectNaverBlogImages(doc, ogImage);
+                structuredContent = buildNaverStructuredContent(doc, ogImage);
+                log.info("네이버 블로그 이미지 수집: {}장, 구조화 콘텐츠 길이: {}", imageEntries.size(), structuredContent.length());
+            } else {
+                imageEntries = new ArrayList<>();
+                int idx = 1;
+                if (!ogImage.isBlank()) {
+                    imageEntries.add("[" + idx++ + "] " + ogImage + " (대표 이미지)");
                 }
-                if (context.length() > 80) context = context.substring(0, 80);
-                imageEntries.add("[" + idx++ + "] " + src + (context.isBlank() ? "" : " (" + context + ")"));
+                for (org.jsoup.nodes.Element img : doc.select("img")) {
+                    if (idx > 31) break;
+                    String src = java.util.stream.Stream.of("src", "data-src", "data-lazy", "data-lazy-src", "data-original")
+                        .map(img::attr)
+                        .filter(s -> !s.isBlank() && !s.startsWith("data:"))
+                        .findFirst()
+                        .map(s -> s.startsWith("http") ? s : img.absUrl("src"))
+                        .orElse("");
+                    if (src.isBlank() || src.equals(ogImage)) continue;
+                    String context = img.attr("alt").trim();
+                    if (context.isBlank()) {
+                        org.jsoup.nodes.Element el = img.parent();
+                        outer:
+                        for (int depth = 0; depth < 3 && el != null; depth++) {
+                            String own = el.ownText().trim();
+                            if (!own.isBlank() && own.length() < 120) { context = own; break; }
+                            for (org.jsoup.nodes.Element sib : el.children()) {
+                                if (sib.select("img").first() != null) continue;
+                                String t = sib.text().trim();
+                                if (!t.isBlank() && t.length() < 120) { context = t; break outer; }
+                            }
+                            el = el.parent();
+                        }
+                    }
+                    if (context.length() > 80) context = context.substring(0, 80);
+                    imageEntries.add("[" + idx++ + "] " + src + (context.isBlank() ? "" : " (" + context + ")"));
+                }
             }
 
             String combined = "제목: " + doc.title()
@@ -151,7 +177,7 @@ public class RecipeExtractService {
                 + "\n본문:\n" + doc.body().text();
             String text = combined.length() > 6000 ? combined.substring(0, 6000) : combined;
 
-            return new PageContent(text, imageEntries);
+            return new PageContent(text, imageEntries, rawImageUrls, structuredContent);
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -195,11 +221,96 @@ public class RecipeExtractService {
         return url.contains("youtube.com") || url.contains("youtu.be");
     }
 
+    private String toMobileUrl(String url) {
+        // 네이버 블로그: blog.naver.com → m.blog.naver.com
+        if (url.contains("blog.naver.com") && !url.contains("m.blog.naver.com")) {
+            return url.replace("blog.naver.com", "m.blog.naver.com");
+        }
+        return url;
+    }
+
+    private String buildNaverStructuredContent(Document doc, String ogImage) {
+        String mainBase = baseUrl(upgradeNaverImageQuality(ogImage));
+        StringBuilder sb = new StringBuilder();
+        int imgIdx = 1;
+        for (org.jsoup.nodes.Element module : doc.select(".se-module")) {
+            if (module.hasClass("se-module-text")) {
+                String t = module.text().trim();
+                if (!t.isBlank() && t.length() > 3) {
+                    sb.append("T:").append(t, 0, Math.min(t.length(), 150)).append("\n");
+                }
+            } else if (module.hasClass("se-module-image")) {
+                String src = java.util.stream.Stream.of("src", "data-lazy-src", "data-src", "data-original")
+                    .map(a -> module.select("img").attr(a))
+                    .filter(s -> !s.isBlank() && !s.startsWith("data:") && s.contains("pstatic.net"))
+                    .findFirst().orElse("");
+                if (!src.isBlank()) {
+                    src = upgradeNaverImageQuality(src);
+                    if (!baseUrl(src).equals(mainBase)) {
+                        sb.append("I[").append(imgIdx++).append("]:").append(src).append("\n");
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    private List<String> collectNaverBlogImages(Document doc, String ogImage) {
+        List<String> entries = new ArrayList<>();
+        int idx = 1;
+        String mainImage = upgradeNaverImageQuality(ogImage);
+        String mainBase = baseUrl(mainImage);
+        if (!mainImage.isBlank()) {
+            entries.add("[" + idx++ + "] " + mainImage + " (대표 이미지)");
+        }
+        List<String> stepCandidates = new ArrayList<>();
+        for (org.jsoup.nodes.Element img : doc.select(".se-image-resource, .se_mediaImage, figure img, .postViewArea img, #postViewArea img, .se-module-image img")) {
+            String src = java.util.stream.Stream.of("src", "data-lazy-src", "data-src", "data-original")
+                .map(img::attr)
+                .filter(s -> !s.isBlank() && !s.startsWith("data:") && s.contains("pstatic.net"))
+                .findFirst().orElse("");
+            if (src.isBlank()) continue;
+            src = upgradeNaverImageQuality(src);
+            // base URL 비교로 중복 제거
+            if (baseUrl(src).equals(mainBase)) continue;
+            if (!stepCandidates.contains(src)) stepCandidates.add(src);
+        }
+        // 파일명의 (N) 번호로 정렬 → 단계 순서와 일치
+        stepCandidates.sort((a, b) -> extractSeqNumber(a) - extractSeqNumber(b));
+        for (String src : stepCandidates) {
+            if (idx > 31) break;
+            entries.add("[" + idx++ + "] " + src);
+        }
+        return entries;
+    }
+
+    private String baseUrl(String url) {
+        if (url == null) return "";
+        int q = url.indexOf('?');
+        return q >= 0 ? url.substring(0, q) : url;
+    }
+
+    private int extractSeqNumber(String url) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("_\\((\\d+)\\)\\.").matcher(url);
+        return m.find() ? Integer.parseInt(m.group(1)) : 999;
+    }
+
+    private String upgradeNaverImageQuality(String url) {
+        if (url == null || url.isBlank()) return "";
+        return url.replaceAll("[?&]type=w\\d+(_blur)?", "?type=w966");
+    }
+
     // ── Claude API 호출 (텍스트) ───────────────────────────────────────────────
 
     private String callClaudeText(String url, PageContent page) {
         String imageSection = "";
-        if (!page.imageEntries().isEmpty()) {
+        if (!page.structuredContent().isBlank()) {
+            // 네이버 블로그: 텍스트-이미지 순서 구조 제공
+            imageSection = "\n\n블로그 내용 순서 (T:텍스트, I[N]:이미지URL — 실제 블로그 순서 그대로):\n"
+                + page.structuredContent()
+                + "\n대표 이미지 URL: " + page.imageEntries().stream().findFirst().map(e -> e.replaceFirst("^\\[1\\] ", "").replaceFirst(" \\(.*\\)$", "")).orElse("null")
+                + "\n\n각 조리 단계 설명과 같거나 가장 유사한 T: 줄을 찾고, 그 바로 앞이나 뒤의 I[N] URL을 해당 step의 imageUrl로 사용하세요. 없으면 null.";
+        } else if (!page.imageEntries().isEmpty()) {
             imageSection = "\n\n페이지 이미지 목록 (번호 → URL (설명)):\n"
                 + String.join("\n", page.imageEntries())
                 + "\n\n위 목록에서 완성된 음식 사진의 URL을 \"imageUrl\"에 넣고,"
