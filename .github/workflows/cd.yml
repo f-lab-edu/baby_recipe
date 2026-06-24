@@ -65,7 +65,7 @@ jobs:
             $EC2_USERNAME@$EC2_HOST:~/app.jar
 
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST \
-            "bash -l -c 'kill \$(ps -ef | grep java | grep -v grep | awk \"{print \\\$2}\") 2>/dev/null; sleep 1; nohup java -jar ~/app.jar --spring.profiles.active=prod > ~/app.log 2>&1 &'"
+            "bash -l -c 'kill -9 \$(ps -ef | grep java | grep -v grep | awk \"{print \\\$2}\") 2>/dev/null; sleep 3; nohup java -jar ~/app.jar --spring.profiles.active=prod > ~/app.log 2>&1 &'"
 
           rm -f key.pem
 
