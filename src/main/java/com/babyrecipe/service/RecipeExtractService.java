@@ -53,7 +53,26 @@ public class RecipeExtractService {
         PageContent page = fetchContent(url);
         String jsonText = callClaudeText(url, page);
         log.debug("Claude 응답: {}", jsonText);
-        return parseResult(jsonText);
+        RecipeExtractResponse result = parseResult(jsonText);
+        return downloadExternalImages(result);
+    }
+
+    private RecipeExtractResponse downloadExternalImages(RecipeExtractResponse response) {
+        if (response.getImageUrl() != null && response.getImageUrl().startsWith("http")) {
+            log.debug("대표 이미지 다운로드: {}", response.getImageUrl());
+            String local = imageStorageService.saveFromUrl(response.getImageUrl());
+            response.setImageUrl(local);
+        }
+        if (response.getSteps() != null) {
+            for (RecipeExtractResponse.StepItem step : response.getSteps()) {
+                if (step.getImageUrl() != null && step.getImageUrl().startsWith("http")) {
+                    log.debug("단계 이미지 다운로드: {}", step.getImageUrl());
+                    String local = imageStorageService.saveFromUrl(step.getImageUrl());
+                    step.setImageUrl(local);
+                }
+            }
+        }
+        return response;
     }
 
     // ── 이미지 기반 추출 ───────────────────────────────────────────────────────

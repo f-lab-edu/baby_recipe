@@ -7,9 +7,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,6 +45,60 @@ public class ImageStorageService {
         } catch (IOException e) {
             log.error("이미지 저장 실패", e);
             throw BabyRecipeException.badRequest("이미지 저장에 실패했습니다.");
+        }
+    }
+
+    public String saveFromUrl(String url) {
+        if (url == null || url.isBlank()) return null;
+        try {
+            HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+            HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Referer", url)
+                .GET()
+                .build();
+            HttpResponse<byte[]> res = client.send(req, HttpResponse.BodyHandlers.ofByteArray());
+            if (res.statusCode() != 200) {
+                log.warn("외부 이미지 다운로드 실패 (HTTP {}): {}", res.statusCode(), url);
+                return null;
+            }
+
+            String contentType = res.headers().firstValue("Content-Type").orElse("image/jpeg");
+            if (contentType.contains(";")) contentType = contentType.split(";")[0].trim();
+            if (!ALLOWED_TYPES.contains(contentType)) {
+                // URL 확장자로 재추론
+                String lower = url.toLowerCase();
+                if (lower.contains(".png")) contentType = "image/png";
+                else if (lower.contains(".webp")) contentType = "image/webp";
+                else contentType = "image/jpeg";
+            }
+            if (!ALLOWED_TYPES.contains(contentType)) {
+                log.warn("외부 이미지 타입 불가: {} ({})", contentType, url);
+                return null;
+            }
+
+            byte[] data = res.body();
+            if (data.length == 0 || data.length > MAX_SIZE) {
+                log.warn("외부 이미지 크기 불가 ({}bytes): {}", data.length, url);
+                return null;
+            }
+
+            String ext = switch (contentType) {
+                case "image/png" -> "png";
+                case "image/webp" -> "webp";
+                default -> "jpg";
+            };
+
+            Path dir = Paths.get(uploadDir);
+            Files.createDirectories(dir);
+            String filename = UUID.randomUUID() + "." + ext;
+            Files.write(dir.resolve(filename), data);
+
+            return baseUrl + "/uploads/" + filename;
+        } catch (Exception e) {
+            log.warn("외부 이미지 다운로드 실패: {}", url, e);
+            return null;
         }
     }
 
