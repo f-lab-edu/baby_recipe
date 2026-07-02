@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/jy_sm/test/baby_recipe/.claude/study/daily_question.sh"
+            "command": "bash \"D:/claude/baby_recipe/.claude/study/daily_question.sh\""
           }
         ]
       }

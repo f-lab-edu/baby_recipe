@@ -2,16 +2,28 @@
 STUDY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$STUDY_DIR/../.." && pwd)"
 QUESTIONS_FILE="$STUDY_DIR/questions.json"
+# Git Bash 경로(/d/...)는 Windows Python이 못 읽으므로 변환
+if command -v cygpath >/dev/null 2>&1; then
+    QUESTIONS_FILE="$(cygpath -m "$QUESTIONS_FILE")"
+fi
 DOC_DIR="$PROJECT_DIR/doc"
 TODAY=$(date +%Y-%m-%d)
+export PYTHONUTF8=1  # Windows Python의 cp949 입출력 인코딩 문제 방지
 REMIND_FLAG="$STUDY_DIR/.doc_reminded_$TODAY"
+
+# python3가 없거나 Windows 스토어 스텁이면 python 사용
+if python3 -c "" 2>/dev/null; then
+    PYTHON=python3
+else
+    PYTHON=python
+fi
 
 # 오늘의 학습 질문
 if [ -f "$QUESTIONS_FILE" ]; then
-    python3 - <<EOF
+    "$PYTHON" - <<EOF
 import json, datetime
 
-with open("$QUESTIONS_FILE") as f:
+with open("$QUESTIONS_FILE", encoding="utf-8") as f:
     questions = json.load(f)["questions"]
 
 total = len(questions)
