@@ -1,0 +1,4 @@
+# EC2(Linux)에서 실행되는 파일은 항상 LF 유지 (Windows 체크아웃 시 CRLF 변환 방지)
+*.sh text eol=lf
+deploy/* text eol=lf
+gradlew text eol=lf

@@ -1,0 +1,15 @@
+[Unit]
+Description=BabyRecipe Spring Boot Application
+After=network.target
+
+[Service]
+User=ec2-user
+WorkingDirectory=/home/ec2-user
+EnvironmentFile=/home/ec2-user/babyrecipe.env
+ExecStart=/usr/bin/java -jar /home/ec2-user/app.jar --spring.profiles.active=prod
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

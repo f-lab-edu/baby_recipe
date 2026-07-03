@@ -64,8 +64,37 @@ jobs:
             build/libs/baby-recipe-1.0.0.jar \
             $EC2_USERNAME@$EC2_HOST:~/app.jar
 
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            deploy/babyrecipe.service deploy/setup-systemd.sh \
+            $EC2_USERNAME@$EC2_HOST:~/
+
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST \
-            "bash -l -c 'kill -9 \$(ps -ef | grep java | grep -v grep | awk \"{print \\\$2}\") 2>/dev/null; sleep 3; nohup java -jar ~/app.jar --spring.profiles.active=prod > ~/app.log 2>&1 &'"
+            "bash ~/setup-systemd.sh && sudo systemctl restart babyrecipe"
+
+          rm -f key.pem
+
+      - name: Verify service is running
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_KEY: ${{ secrets.EC2_KEY }}
+        run: |
+          echo "$EC2_KEY" > key.pem
+          chmod 600 key.pem
+
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST '
+            for i in $(seq 1 12); do
+              if curl -sf -o /dev/null http://localhost:8080; then
+                echo "Health check OK (${i}0s)"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "Health check FAILED after 120s"
+            sudo systemctl status babyrecipe --no-pager
+            sudo journalctl -u babyrecipe -n 50 --no-pager
+            exit 1
+          '
 
           rm -f key.pem
 
