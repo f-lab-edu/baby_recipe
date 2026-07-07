@@ -21,14 +21,14 @@ public class RecipeExtractController {
     private final RecipeExtractService recipeExtractService;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<RecipeExtractResponse>> extract(
+    public ResponseEntity<ApiResponse<List<RecipeExtractResponse>>> extract(
         @Valid @RequestBody RecipeExtractRequest request
     ) {
         return ResponseEntity.ok(ApiResponse.ok(recipeExtractService.extract(request.getUrl())));
     }
 
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<RecipeExtractResponse>> extractFromImages(
+    public ResponseEntity<ApiResponse<List<RecipeExtractResponse>>> extractFromImages(
         @RequestPart("images") List<MultipartFile> images
     ) {
         return ResponseEntity.ok(ApiResponse.ok(recipeExtractService.extractFromImages(images)));

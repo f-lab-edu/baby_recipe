@@ -177,6 +177,32 @@ function ImageExtractor({ onExtracted }) {
   )
 }
 
+function ExtractedRecipeList({ recipes, onSelect, onFinish }) {
+  const savedCount = recipes.filter(r => r._saved).length
+  return (
+    <div className={styles.extractedList}>
+      <p className={styles.extractedListInfo}>
+        레시피 {recipes.length}개를 찾았어요. 등록할 항목을 선택해 확인 후 저장하세요. ({savedCount}/{recipes.length} 등록됨)
+      </p>
+      <div className={styles.cardGrid}>
+        {recipes.map((r, i) => (
+          <div key={i} className={styles.recipeCard}>
+            {r.imageUrl && <img src={r.imageUrl} alt="" className={styles.recipeCardImg} />}
+            <h3>{r.title}</h3>
+            {r.description && <p className={styles.recipeCardDesc}>{r.description}</p>}
+            {r._saved ? (
+              <span className={styles.savedBadge}>✅ 등록 완료</span>
+            ) : (
+              <button type="button" className="btn-primary btn-sm" onClick={() => onSelect(i)}>확인하기</button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="btn-secondary" onClick={onFinish}>완료하고 나가기</button>
+    </div>
+  )
+}
+
 function AutoExtractor({ onExtracted }) {
   const [tab, setTab] = useState('url')
 
@@ -230,35 +256,58 @@ const CATEGORIES = [
 const emptyIngredient = () => ({ name: '', amount: '', unit: '' })
 const emptyStep = (order) => ({ order, description: '', imageUrl: '' })
 
+const blankForm = () => ({
+  title: '', description: '', ageGroup: 'MONTH_4_6', category: 'PORRIDGE',
+  cookingTime: '', servings: '', imageUrl: '', tags: '',
+  ingredients: [emptyIngredient()],
+  steps: [emptyStep(1)],
+})
+
+const mergeIntoForm = (base, data) => ({
+  ...base,
+  title: data.title || base.title,
+  description: data.description || base.description,
+  ageGroup: data.ageGroup || base.ageGroup,
+  category: data.category || base.category,
+  cookingTime: data.cookingTime ?? base.cookingTime,
+  servings: data.servings ?? base.servings,
+  imageUrl: base.imageUrl || data.imageUrl,
+  tags: data.tags?.join(', ') || base.tags,
+  ingredients: data.ingredients?.length ? data.ingredients : base.ingredients,
+  steps: data.steps?.length ? data.steps : base.steps,
+})
+
 export default function RecipeForm() {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = !!id
 
-  const [form, setForm] = useState({
-    title: '', description: '', ageGroup: 'MONTH_4_6', category: 'PORRIDGE',
-    cookingTime: '', servings: '', imageUrl: '', tags: '',
-    ingredients: [emptyIngredient()],
-    steps: [emptyStep(1)],
-  })
+  const [form, setForm] = useState(blankForm())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // 사진/URL에서 레시피가 여러 개 추출됐을 때: 목록에서 고른 항목만 확인 후 저장
+  const [extractedList, setExtractedList] = useState(null)
+  const [activeIndex, setActiveIndex] = useState(null)
+
   const handleExtracted = (data) => {
-    setForm(f => ({
-      ...f,
-      title: data.title || f.title,
-      description: data.description || f.description,
-      ageGroup: data.ageGroup || f.ageGroup,
-      category: data.category || f.category,
-      cookingTime: data.cookingTime ?? f.cookingTime,
-      servings: data.servings ?? f.servings,
-      imageUrl: f.imageUrl || data.imageUrl,
-      tags: data.tags?.join(', ') || f.tags,
-      ingredients: data.ingredients?.length ? data.ingredients : f.ingredients,
-      steps: data.steps?.length ? data.steps : f.steps,
-    }))
+    const list = Array.isArray(data) ? data : [data]
+    if (list.length > 1) {
+      setExtractedList(list.map(r => ({ ...r, _saved: false })))
+      setActiveIndex(null)
+    } else if (list.length === 1) {
+      setForm(f => mergeIntoForm(f, list[0]))
+    }
   }
+
+  const openForEdit = (i) => {
+    setForm(mergeIntoForm(blankForm(), extractedList[i]))
+    setActiveIndex(i)
+  }
+
+  const backToList = () => setActiveIndex(null)
+
+  const finishExtractedList = () => navigate('/')
 
   useEffect(() => {
     if (isEdit) {
@@ -320,7 +369,14 @@ export default function RecipeForm() {
         navigate(`/recipes/${id}`)
       } else {
         const res = await api.post('/recipes', body)
-        navigate(`/recipes/${res.data.data.id}`)
+        if (extractedList && activeIndex !== null) {
+          const savedIndex = activeIndex
+          setExtractedList(list => list.map((r, i) => i === savedIndex ? { ...r, _saved: true } : r))
+          setForm(blankForm())
+          setActiveIndex(null)
+        } else {
+          navigate(`/recipes/${res.data.data.id}`)
+        }
       }
     } catch (err) {
       setError(err.response?.data?.message || '저장에 실패했습니다.')
@@ -333,8 +389,14 @@ export default function RecipeForm() {
     <div className="page">
       <div className={`container ${styles.wrap}`}>
         <h1>{isEdit ? '레시피 수정' : '레시피 작성'}</h1>
-        {!isEdit && <AutoExtractor onExtracted={handleExtracted} />}
+        {!isEdit && !extractedList && <AutoExtractor onExtracted={handleExtracted} />}
+        {extractedList && activeIndex === null ? (
+          <ExtractedRecipeList recipes={extractedList} onSelect={openForEdit} onFinish={finishExtractedList} />
+        ) : (
         <form onSubmit={handleSubmit} className={styles.form}>
+          {extractedList && (
+            <button type="button" className={styles.backToListBtn} onClick={backToList}>← 목록으로</button>
+          )}
 
           <section className={styles.section}>
             <h2>기본 정보</h2>
@@ -414,10 +476,11 @@ export default function RecipeForm() {
 
           {error && <p className="error-msg">{error}</p>}
           <div className={styles.submit}>
-            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>취소</button>
+            <button type="button" className="btn-secondary" onClick={() => extractedList ? backToList() : navigate(-1)}>취소</button>
             <button type="submit" className="btn-primary" disabled={loading}>{loading ? '저장 중...' : isEdit ? '수정 완료' : '레시피 등록'}</button>
           </div>
         </form>
+        )}
       </div>
     </div>
   )

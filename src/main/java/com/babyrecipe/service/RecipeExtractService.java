@@ -52,7 +52,7 @@ public class RecipeExtractService {
 
     // ── URL 기반 추출 ──────────────────────────────────────────────────────────
 
-    public RecipeExtractResponse extract(String url) {
+    public List<RecipeExtractResponse> extract(String url) {
         if (apiKey == null || apiKey.isBlank()) {
             throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
         }
@@ -60,11 +60,14 @@ public class RecipeExtractService {
         PageContent page = fetchContent(url);
         String jsonText = callClaudeText(url, page);
         log.info("Claude 응답: {}", jsonText);
-        RecipeExtractResponse result = parseResult(jsonText);
-        if (page.structuredContent().isBlank()) {
-            assignStepImagesSequentially(result, page.rawImageUrls());
+        List<RecipeExtractResponse> results = parseResult(jsonText);
+        for (RecipeExtractResponse result : results) {
+            if (page.structuredContent().isBlank()) {
+                assignStepImagesSequentially(result, page.rawImageUrls());
+            }
+            downloadExternalImages(result, url);
         }
-        return downloadExternalImages(result, url);
+        return results;
     }
 
     private void assignStepImagesSequentially(RecipeExtractResponse response, List<String> stepImageCandidates) {
@@ -97,7 +100,7 @@ public class RecipeExtractService {
 
     // ── 이미지 기반 추출 ───────────────────────────────────────────────────────
 
-    public RecipeExtractResponse extractFromImages(List<MultipartFile> images) {
+    public List<RecipeExtractResponse> extractFromImages(List<MultipartFile> images) {
         if (apiKey == null || apiKey.isBlank()) {
             throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
         }
@@ -320,29 +323,32 @@ public class RecipeExtractService {
         String prompt = """
             당신은 이유식/아기 레시피 추출 전문가입니다.
             아래 웹페이지 내용에서 레시피 정보를 추출하여 JSON으로만 응답해주세요.
+            페이지 안에 서로 다른 레시피가 여러 개 있으면 각각을 배열의 별도 요소로 추출하세요.
 
             URL: %s
             내용:
             %s%s
 
-            다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-            {
-              "title": "레시피 제목",
-              "description": "간단한 설명 (2~3문장)",
-              "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
-              "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
-              "cookingTime": 조리시간(분, 숫자 또는 null),
-              "servings": 인분수(숫자 또는 null),
-              "imageUrl": "완성본 이미지 URL (이미지 목록에서 선택, 없으면 null)",
-              "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
-              "steps": [{"order": 1, "description": "조리 단계 설명", "imageUrl": "해당 단계 이미지 URL 또는 null"}],
-              "tags": ["태그1", "태그2"]
-            }
+            다음 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이). 레시피가 하나면 요소가 1개인 배열로 응답하세요:
+            [
+              {
+                "title": "레시피 제목",
+                "description": "간단한 설명 (2~3문장)",
+                "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
+                "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
+                "cookingTime": 조리시간(분, 숫자 또는 null),
+                "servings": 인분수(숫자 또는 null),
+                "imageUrl": "완성본 이미지 URL (이미지 목록에서 선택, 없으면 null)",
+                "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
+                "steps": [{"order": 1, "description": "조리 단계 설명", "imageUrl": "해당 단계 이미지 URL 또는 null"}],
+                "tags": ["태그1", "태그2"]
+              }
+            ]
 
             연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
-            반드시 단일 JSON 객체로만 응답하세요 (배열 [] 사용 금지).
-            레시피를 찾을 수 없으면 null을 반환하세요.
+            반드시 JSON 배열로만 응답하세요 (배열을 감싸지 않은 단일 객체 금지).
+            레시피를 찾을 수 없으면 빈 배열 []을 반환하세요.
             """.formatted(url, page.text(), imageSection);
 
         return callClaude(List.of(new ClaudeMessage("user", prompt)));
@@ -368,28 +374,33 @@ public class RecipeExtractService {
             당신은 이유식/아기 레시피 추출 전문가입니다.
             총 %d장의 이미지를 분석하여 레시피 정보를 추출해주세요.
             이미지에 번호를 1번부터 순서대로 붙입니다.
+            사진들 안에 서로 다른 레시피가 섞여 있다면 각 레시피를 배열의 별도 요소로 분리해서 응답하세요.
+            (예: 레시피 카드/블로그 캡처를 여러 장 찍어서 올린 경우) 하나의 레시피에 대한 사진들이면 요소가 1개인 배열로 응답하세요.
 
             완성된 음식이 접시에 담겨 플레이팅된 사진(완성본)이 있다면 해당 이미지 번호를 finishedImageIndex에 기재해주세요.
             각 조리 단계와 관련된 이미지가 있다면 해당 step의 stepImageIndex에 이미지 번호를 기재해주세요.
+            이미지 번호는 레시피가 여러 개여도 전체 사진 기준 번호(1~%d)를 그대로 사용하세요.
 
-            다음 JSON 형식으로만 응답하세요 (다른 텍스트 없이):
-            {
-              "title": "레시피 제목",
-              "description": "간단한 설명 (2~3문장)",
-              "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
-              "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
-              "cookingTime": 조리시간(분, 숫자 또는 null),
-              "servings": 인분수(숫자 또는 null),
-              "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
-              "steps": [{"order": 1, "description": "조리 단계 설명", "stepImageIndex": 이미지번호또는null}],
-              "tags": ["태그1", "태그2"],
-              "finishedImageIndex": 완성본이미지번호또는null
-            }
+            다음 JSON 배열 형식으로만 응답하세요 (다른 텍스트 없이):
+            [
+              {
+                "title": "레시피 제목",
+                "description": "간단한 설명 (2~3문장)",
+                "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
+                "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
+                "cookingTime": 조리시간(분, 숫자 또는 null),
+                "servings": 인분수(숫자 또는 null),
+                "ingredients": [{"name": "재료명", "amount": "양", "unit": "단위"}],
+                "steps": [{"order": 1, "description": "조리 단계 설명", "stepImageIndex": 이미지번호또는null}],
+                "tags": ["태그1", "태그2"],
+                "finishedImageIndex": 완성본이미지번호또는null
+              }
+            ]
 
             연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
-            반드시 단일 JSON 객체로만 응답하세요 (배열 [] 사용 금지).
-            """.formatted(count);
+            반드시 JSON 배열로만 응답하세요 (배열을 감싸지 않은 단일 객체 금지).
+            """.formatted(count, count);
 
         blocks.add(ContentBlock.text(prompt));
         return callClaude(List.of(new ClaudeMessage("user", blocks)));
@@ -431,10 +442,14 @@ public class RecipeExtractService {
 
     // ── 파싱 ──────────────────────────────────────────────────────────────────
 
-    private RecipeExtractResponse parseResult(String jsonText) {
+    private List<RecipeExtractResponse> parseResult(String jsonText) {
         try {
-            JsonNode node = extractJsonNode(jsonText);
-            return objectMapper.treeToValue(node, RecipeExtractResponse.class);
+            List<JsonNode> nodes = extractJsonNodes(jsonText);
+            List<RecipeExtractResponse> results = new ArrayList<>();
+            for (JsonNode node : nodes) {
+                results.add(objectMapper.treeToValue(node, RecipeExtractResponse.class));
+            }
+            return results;
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -443,37 +458,42 @@ public class RecipeExtractService {
         }
     }
 
-    private RecipeExtractResponse parseVisionResult(String jsonText, List<String> savedUrls) {
+    private List<RecipeExtractResponse> parseVisionResult(String jsonText, List<String> savedUrls) {
         try {
-            JsonNode node = extractJsonNode(jsonText);
+            List<JsonNode> nodes = extractJsonNodes(jsonText);
+            List<RecipeExtractResponse> results = new ArrayList<>();
 
-            // finishedImageIndex → imageUrl 매핑 (1-based)
-            Integer finishedIdx = node.hasNonNull("finishedImageIndex")
-                ? node.get("finishedImageIndex").asInt() : null;
+            for (JsonNode node : nodes) {
+                // finishedImageIndex → imageUrl 매핑 (1-based)
+                Integer finishedIdx = node.hasNonNull("finishedImageIndex")
+                    ? node.get("finishedImageIndex").asInt() : null;
 
-            RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+                RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
 
-            if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
-                response.setImageUrl(savedUrls.get(finishedIdx - 1));
-            } else {
-                response.setImageUrl(savedUrls.get(0));
-            }
+                if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
+                    response.setImageUrl(savedUrls.get(finishedIdx - 1));
+                } else {
+                    response.setImageUrl(savedUrls.get(0));
+                }
 
-            // stepImageIndex → step.imageUrl 매핑
-            if (response.getSteps() != null) {
-                JsonNode stepsNode = node.get("steps");
-                for (int i = 0; i < response.getSteps().size(); i++) {
-                    JsonNode stepNode = stepsNode != null ? stepsNode.get(i) : null;
-                    if (stepNode != null && stepNode.hasNonNull("stepImageIndex")) {
-                        int stepImgIdx = stepNode.get("stepImageIndex").asInt();
-                        if (stepImgIdx >= 1 && stepImgIdx <= savedUrls.size()) {
-                            response.getSteps().get(i).setImageUrl(savedUrls.get(stepImgIdx - 1));
+                // stepImageIndex → step.imageUrl 매핑
+                if (response.getSteps() != null) {
+                    JsonNode stepsNode = node.get("steps");
+                    for (int i = 0; i < response.getSteps().size(); i++) {
+                        JsonNode stepNode = stepsNode != null ? stepsNode.get(i) : null;
+                        if (stepNode != null && stepNode.hasNonNull("stepImageIndex")) {
+                            int stepImgIdx = stepNode.get("stepImageIndex").asInt();
+                            if (stepImgIdx >= 1 && stepImgIdx <= savedUrls.size()) {
+                                response.getSteps().get(i).setImageUrl(savedUrls.get(stepImgIdx - 1));
+                            }
                         }
                     }
                 }
+
+                results.add(response);
             }
 
-            return response;
+            return results;
         } catch (BabyRecipeException e) {
             throw e;
         } catch (Exception e) {
@@ -482,15 +502,25 @@ public class RecipeExtractService {
         }
     }
 
-    private JsonNode extractJsonNode(String jsonText) throws Exception {
+    private List<JsonNode> extractJsonNodes(String jsonText) throws Exception {
         String cleaned = jsonText.trim();
 
         Matcher fenceMatcher = Pattern.compile("```(?:json)?\\s*([\\s\\S]*?)```").matcher(cleaned);
         if (fenceMatcher.find()) {
             cleaned = fenceMatcher.group(1).trim();
         } else {
-            int start = cleaned.indexOf('{');
-            int end = cleaned.lastIndexOf('}');
+            int braceStart = cleaned.indexOf('{');
+            int bracketStart = cleaned.indexOf('[');
+            int start;
+            char endChar;
+            if (bracketStart != -1 && (braceStart == -1 || bracketStart < braceStart)) {
+                start = bracketStart;
+                endChar = ']';
+            } else {
+                start = braceStart;
+                endChar = '}';
+            }
+            int end = cleaned.lastIndexOf(endChar);
             if (start != -1 && end != -1 && end > start) {
                 cleaned = cleaned.substring(start, end + 1);
             }
@@ -503,12 +533,16 @@ public class RecipeExtractService {
         cleaned = repairJson(cleaned);
 
         JsonNode node = objectMapper.readTree(cleaned);
+        List<JsonNode> nodes = new ArrayList<>();
         if (node.isArray()) {
-            log.warn("Claude가 배열로 응답함 - 첫 번째 요소 사용");
-            if (node.isEmpty()) throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
-            node = node.get(0);
+            node.forEach(nodes::add);
+        } else if (node.isObject()) {
+            nodes.add(node);
         }
-        return node;
+        if (nodes.isEmpty()) {
+            throw BabyRecipeException.badRequest("레시피 정보를 찾을 수 없습니다.");
+        }
+        return nodes;
     }
 
     // 배열 요소 사이 누락된 쉼표 보정 (Claude가 간헐적으로 생략하는 케이스 처리)
