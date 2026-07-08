@@ -177,12 +177,13 @@ function ImageExtractor({ onExtracted }) {
   )
 }
 
-function ExtractedRecipeList({ recipes, onSelect, onFinish }) {
+function ExtractedRecipeList({ recipes, onSelect, onFinish, onSaveAll, saving, saveError }) {
   const savedCount = recipes.filter(r => r._saved).length
+  const remaining = recipes.length - savedCount
   return (
     <div className={styles.extractedList}>
       <p className={styles.extractedListInfo}>
-        레시피 {recipes.length}개를 찾았어요. 등록할 항목을 선택해 확인 후 저장하세요. ({savedCount}/{recipes.length} 등록됨)
+        레시피 {recipes.length}개를 찾았어요. 등록할 항목을 선택해 확인 후 저장하거나, 한 번에 모두 등록할 수 있어요. ({savedCount}/{recipes.length} 등록됨)
       </p>
       <div className={styles.cardGrid}>
         {recipes.map((r, i) => (
@@ -193,12 +194,18 @@ function ExtractedRecipeList({ recipes, onSelect, onFinish }) {
             {r._saved ? (
               <span className={styles.savedBadge}>✅ 등록 완료</span>
             ) : (
-              <button type="button" className="btn-primary btn-sm" onClick={() => onSelect(i)}>확인하기</button>
+              <button type="button" className="btn-primary btn-sm" onClick={() => onSelect(i)} disabled={saving}>확인하기</button>
             )}
           </div>
         ))}
       </div>
-      <button type="button" className="btn-secondary" onClick={onFinish}>완료하고 나가기</button>
+      {saveError && <p className="error-msg">{saveError}</p>}
+      <div className={styles.extractedListActions}>
+        <button type="button" className="btn-primary" onClick={onSaveAll} disabled={saving || remaining === 0}>
+          {saving ? '등록 중...' : `전체 등록 (${remaining}개 남음)`}
+        </button>
+        <button type="button" className="btn-secondary" onClick={onFinish} disabled={saving}>완료하고 나가기</button>
+      </div>
     </div>
   )
 }
@@ -289,6 +296,8 @@ export default function RecipeForm() {
   // 사진/URL에서 레시피가 여러 개 추출됐을 때: 목록에서 고른 항목만 확인 후 저장
   const [extractedList, setExtractedList] = useState(null)
   const [activeIndex, setActiveIndex] = useState(null)
+  const [savingAll, setSavingAll] = useState(false)
+  const [saveAllError, setSaveAllError] = useState('')
 
   const handleExtracted = (data) => {
     const list = Array.isArray(data) ? data : [data]
@@ -308,6 +317,39 @@ export default function RecipeForm() {
   const backToList = () => setActiveIndex(null)
 
   const finishExtractedList = () => navigate('/')
+
+  const buildCreateBody = (r) => ({
+    title: r.title,
+    description: r.description || '',
+    ageGroup: r.ageGroup,
+    category: r.category,
+    cookingTime: r.cookingTime ?? null,
+    servings: r.servings ?? null,
+    imageUrl: r.imageUrl || null,
+    tags: r.tags || [],
+    ingredients: (r.ingredients || []).filter(i => i.name),
+    steps: (r.steps || []).filter(s => s.description).map((s, idx) => ({ ...s, order: idx + 1 })),
+  })
+
+  const saveAllExtracted = async () => {
+    setSaveAllError('')
+    setSavingAll(true)
+    const failedTitles = []
+    for (let i = 0; i < extractedList.length; i++) {
+      const r = extractedList[i]
+      if (r._saved) continue
+      try {
+        await api.post('/recipes', buildCreateBody(r))
+        setExtractedList(list => list.map((item, idx) => idx === i ? { ...item, _saved: true } : item))
+      } catch (err) {
+        failedTitles.push(r.title || `#${i + 1}`)
+      }
+    }
+    setSavingAll(false)
+    if (failedTitles.length) {
+      setSaveAllError(`다음 레시피는 등록에 실패했어요: ${failedTitles.join(', ')}`)
+    }
+  }
 
   useEffect(() => {
     if (isEdit) {
@@ -391,7 +433,14 @@ export default function RecipeForm() {
         <h1>{isEdit ? '레시피 수정' : '레시피 작성'}</h1>
         {!isEdit && !extractedList && <AutoExtractor onExtracted={handleExtracted} />}
         {extractedList && activeIndex === null ? (
-          <ExtractedRecipeList recipes={extractedList} onSelect={openForEdit} onFinish={finishExtractedList} />
+          <ExtractedRecipeList
+            recipes={extractedList}
+            onSelect={openForEdit}
+            onFinish={finishExtractedList}
+            onSaveAll={saveAllExtracted}
+            saving={savingAll}
+            saveError={saveAllError}
+          />
         ) : (
         <form onSubmit={handleSubmit} className={styles.form}>
           {extractedList && (
