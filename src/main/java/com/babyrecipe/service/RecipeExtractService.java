@@ -311,8 +311,11 @@ public class RecipeExtractService {
             // 네이버 블로그: 텍스트-이미지 순서 구조 제공
             imageSection = "\n\n블로그 내용 순서 (T:텍스트, I[N]:이미지URL — 실제 블로그 순서 그대로):\n"
                 + page.structuredContent()
-                + "\n대표 이미지 URL: " + page.imageEntries().stream().findFirst().map(e -> e.replaceFirst("^\\[1\\] ", "").replaceFirst(" \\(.*\\)$", "")).orElse("null")
-                + "\n\n각 조리 단계 설명과 같거나 가장 유사한 T: 줄을 찾고, 그 바로 앞이나 뒤의 I[N] URL을 해당 step의 imageUrl로 사용하세요. 없으면 null.";
+                + "\n페이지 대표(og:image) 이미지 URL: " + page.imageEntries().stream().findFirst().map(e -> e.replaceFirst("^\\[1\\] ", "").replaceFirst(" \\(.*\\)$", "")).orElse("null")
+                + "\n\n이미지 매칭 규칙:\n"
+                + "- 레시피가 1개뿐이면 위 '페이지 대표 이미지'를 그 레시피의 imageUrl로 사용하세요.\n"
+                + "- 레시피가 여러 개면 페이지 대표 이미지는 무시하고, 각 레시피마다 자신의 섹션(자신의 제목/캡션 T: 줄부터 다음 레시피의 제목/캡션 T: 줄 직전까지) 안에 있는 I[N] 이미지 중 하나를 그 레시피의 imageUrl로 고르세요. 이미지가 레시피 제목/캡션보다 먼저(위에) 나오는 구조가 흔하므로, 뒤쪽만 보지 말고 해당 레시피 제목 바로 앞의 I[N]도 반드시 확인하세요. 다른 레시피 섹션에 있는 이미지를 가져오면 안 됩니다.\n"
+                + "- 각 조리 단계는 같거나 가장 유사한 T: 줄을 찾고, 그 바로 앞이나 뒤의 I[N] URL 중 같은 레시피 섹션 안에 있는 것을 step의 imageUrl로 사용하세요. 없으면 null.";
         } else if (!page.imageEntries().isEmpty()) {
             imageSection = "\n\n페이지 이미지 목록 (번호 → URL (설명)):\n"
                 + String.join("\n", page.imageEntries())
