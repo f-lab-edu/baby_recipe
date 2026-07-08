@@ -410,7 +410,7 @@ public class RecipeExtractService {
 
     private String callClaude(List<ClaudeMessage> messages) {
         try {
-            ClaudeRequestBody body = new ClaudeRequestBody(model, 2048, messages);
+            ClaudeRequestBody body = new ClaudeRequestBody(model, 8192, messages);
             String requestJson = objectMapper.writeValueAsString(body);
 
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build();
