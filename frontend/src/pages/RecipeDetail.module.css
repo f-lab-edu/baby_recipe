@@ -2,7 +2,7 @@
 .wrap { max-width: 760px; }
 .main { background: white; border-radius: 16px; padding: 32px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
 
-.image { width: 100%; border-radius: 12px; margin-bottom: 20px; max-height: 360px; object-fit: cover; }
+.image { width: 100%; border-radius: 12px; margin-bottom: 20px; max-height: 360px; object-fit: cover; cursor: zoom-in; }
 
 .badges { display: flex; gap: 8px; margin-bottom: 12px; }
 .badge { font-size: 12px; background: #fff0f6; color: #c2255c; padding: 3px 10px; border-radius: 20px; }
@@ -37,7 +37,11 @@
 .stepNum { width: 28px; height: 28px; background: #ff7eb3; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
 .stepContent { display: flex; flex-direction: column; gap: 8px; }
 .steps p { font-size: 14px; line-height: 1.7; padding-top: 4px; }
-.stepImage { max-width: 280px; border-radius: 8px; object-fit: cover; }
+.stepImage { max-width: 280px; border-radius: 8px; object-fit: cover; cursor: zoom-in; }
+
+.lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; object-fit: contain; cursor: default; }
+.lightboxClose { position: absolute; top: 16px; right: 16px; background: none; color: white; font-size: 24px; padding: 8px; line-height: 1; }
 
 .commentForm { display: flex; gap: 8px; margin-bottom: 16px; align-items: flex-end; }
 .commentForm textarea { flex: 1; resize: none; }

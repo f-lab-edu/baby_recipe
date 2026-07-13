@@ -12,6 +12,14 @@ export default function RecipeDetail() {
   const [comments, setComments] = useState([])
   const [commentText, setCommentText] = useState('')
   const [loading, setLoading] = useState(true)
+  const [zoomImage, setZoomImage] = useState(null)
+
+  useEffect(() => {
+    if (!zoomImage) return
+    const onKeyDown = e => { if (e.key === 'Escape') setZoomImage(null) }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [zoomImage])
 
   useEffect(() => {
     Promise.all([
@@ -63,7 +71,10 @@ export default function RecipeDetail() {
     <div className="page">
       <div className={`container ${styles.wrap}`}>
         <div className={styles.main}>
-          {recipe.imageUrl && <img src={recipe.imageUrl} alt={recipe.title} className={styles.image} />}
+          {recipe.imageUrl && (
+            <img src={recipe.imageUrl} alt={recipe.title} className={styles.image}
+              onClick={() => setZoomImage(recipe.imageUrl)} />
+          )}
 
           <div className={styles.badges}>
             <span className={styles.badge}>{recipe.ageGroupLabel}</span>
@@ -126,7 +137,10 @@ export default function RecipeDetail() {
                     <span className={styles.stepNum}>{step.order}</span>
                     <div className={styles.stepContent}>
                       <p>{step.description}</p>
-                      {step.imageUrl && <img src={step.imageUrl} alt={`${step.order}단계`} className={styles.stepImage} />}
+                      {step.imageUrl && (
+                        <img src={step.imageUrl} alt={`${step.order}단계`} className={styles.stepImage}
+                          onClick={() => setZoomImage(step.imageUrl)} />
+                      )}
                     </div>
                   </li>
                 ))}
@@ -164,6 +178,13 @@ export default function RecipeDetail() {
           </section>
         </div>
       </div>
+
+      {zoomImage && (
+        <div className={styles.lightbox} onClick={() => setZoomImage(null)}>
+          <button className={styles.lightboxClose} aria-label="닫기">✕</button>
+          <img src={zoomImage} alt="확대 이미지" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
     </div>
   )
 }
