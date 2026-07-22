@@ -78,12 +78,58 @@ public class RecipeExtractService {
 
     private RecipeExtractResponse buildUrlOnlyFallback(String url) {
         RecipeExtractResponse r = new RecipeExtractResponse();
-        r.setTitle(guessSourceLabel(url) + "에서 가져온 레시피");
+        r.setTitle(guessFallbackTitle(url));
         r.setSourceUrl(url);
         r.setIngredients(List.of());
         r.setSteps(List.of());
         r.setTags(List.of());
         return r;
+    }
+
+    // 정상 추출이 실패했을 때 제목만이라도 최대한 사람이 구분할 수 있게 채운다.
+    private String guessFallbackTitle(String url) {
+        String quickTitle = fetchQuickTitle(url);
+        if (quickTitle != null && !quickTitle.isBlank()) {
+            return quickTitle.length() > 100 ? quickTitle.substring(0, 100) : quickTitle;
+        }
+        String shortId = extractPathId(url);
+        String label = guessSourceLabel(url);
+        return shortId.isBlank() ? label + "에서 가져온 레시피" : label + "에서 가져온 레시피 (" + shortId + ")";
+    }
+
+    // 크롤링이 차단된 사이트(인스타그램 등)도 소셜 미리보기용 크롤러 UA에는
+    // og:title을 내려주는 경우가 많아, 정식 추출과 별개로 제목만 가볍게 시도한다.
+    private String fetchQuickTitle(String url) {
+        try {
+            Document doc = Jsoup.connect(url)
+                .userAgent("facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)")
+                .timeout(6_000).get();
+            String ogTitle = doc.select("meta[property=og:title]").attr("content");
+            if (!ogTitle.isBlank()) return ogTitle.trim();
+            String title = doc.title();
+            return title.isBlank() ? null : title.trim();
+        } catch (Exception e) {
+            log.debug("빠른 제목 조회 실패: {}", url, e);
+            return null;
+        }
+    }
+
+    // URL 마지막 경로 조각(게시물 코드 등)을 제목 뒤에 붙여 최소한의 구분자로 사용한다.
+    private String extractPathId(String url) {
+        try {
+            String path = URI.create(url).getPath();
+            if (path == null) return "";
+            String[] segments = path.split("/");
+            for (int i = segments.length - 1; i >= 0; i--) {
+                if (!segments[i].isBlank()) {
+                    String seg = segments[i].length() > 12 ? segments[i].substring(0, 12) : segments[i];
+                    return seg;
+                }
+            }
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private String guessSourceLabel(String url) {
