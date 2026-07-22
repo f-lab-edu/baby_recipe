@@ -17,6 +17,38 @@
 
 .desc { font-size: 15px; color: #495057; margin-bottom: 20px; line-height: 1.8; }
 
+.sourceLinkCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, #fff0f6, #f8f0ff);
+  border: 1px solid #fcc2d7;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  color: #c2255c;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.sourceLinkCard:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(194,37,92,0.15); }
+.sourceDomain { color: #868e96; font-weight: 400; font-size: 13px; }
+
+.emptyContentHint {
+  margin-top: 28px;
+  border: 1px dashed #ced4da;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  color: #868e96;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
 .reactionRow { display: flex; gap: 12px; margin-bottom: 16px; }
 .reactionBtn { background: #f1f3f5; color: #495057; }
 .liked { background: #fff0f6; color: #e64980; }

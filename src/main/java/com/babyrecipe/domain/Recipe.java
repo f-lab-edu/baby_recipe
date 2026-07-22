@@ -33,6 +33,9 @@ public class Recipe {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "source_url", length = 500)
+    private String sourceUrl;
+
     @Column(name = "cooking_time")
     private Integer cookingTime;
 
@@ -100,11 +103,12 @@ public class Recipe {
     }
 
     @Builder
-    public Recipe(String title, String description, String imageUrl, Integer cookingTime,
+    public Recipe(String title, String description, String imageUrl, String sourceUrl, Integer cookingTime,
                   Integer servings, AgeGroup ageGroup, Category category, User author) {
         this.title = title;
         this.description = description;
         this.imageUrl = imageUrl;
+        this.sourceUrl = sourceUrl;
         this.cookingTime = cookingTime;
         this.servings = servings;
         this.ageGroup = ageGroup;
@@ -112,11 +116,12 @@ public class Recipe {
         this.author = author;
     }
 
-    public void update(String title, String description, String imageUrl,
+    public void update(String title, String description, String imageUrl, String sourceUrl,
                        Integer cookingTime, Integer servings, AgeGroup ageGroup, Category category) {
         this.title = title;
         this.description = description;
         if (imageUrl != null) this.imageUrl = imageUrl;
+        if (sourceUrl != null) this.sourceUrl = sourceUrl;
         this.cookingTime = cookingTime;
         this.servings = servings;
         this.ageGroup = ageGroup;

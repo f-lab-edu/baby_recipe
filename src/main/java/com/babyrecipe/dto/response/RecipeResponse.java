@@ -14,6 +14,7 @@ public class RecipeResponse {
     private String title;
     private String description;
     private String imageUrl;
+    private String sourceUrl;
     private Integer cookingTime;
     private Integer servings;
     private long viewCount;
@@ -60,6 +61,7 @@ public class RecipeResponse {
             .title(recipe.getTitle())
             .description(recipe.getDescription())
             .imageUrl(recipe.getImageUrl())
+            .sourceUrl(recipe.getSourceUrl())
             .cookingTime(recipe.getCookingTime())
             .servings(recipe.getServings())
             .viewCount(recipe.getViewCount())

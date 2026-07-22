@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../api/axios'
+import { sourceLabel, isLinkOnly } from '../utils/sourceLink'
 import styles from './RecipeForm.module.css'
 
 // 이미지 파일을 업로드하고 URL을 반환하는 공용 컴포넌트
@@ -186,18 +187,29 @@ function ExtractedRecipeList({ recipes, onSelect, onFinish, onSaveAll, saving, s
         레시피 {recipes.length}개를 찾았어요. 등록할 항목을 선택해 확인 후 저장하거나, 한 번에 모두 등록할 수 있어요. ({savedCount}/{recipes.length} 등록됨)
       </p>
       <div className={styles.cardGrid}>
-        {recipes.map((r, i) => (
-          <div key={i} className={styles.recipeCard}>
-            {r.imageUrl && <img src={r.imageUrl} alt="" className={styles.recipeCardImg} />}
+        {recipes.map((r, i) => {
+          const linkOnly = isLinkOnly(r)
+          return (
+          <div key={i} className={linkOnly ? `${styles.recipeCard} ${styles.linkOnlyCard}` : styles.recipeCard}>
+            {linkOnly ? (
+              <div className={styles.linkOnlyThumb}>🔗</div>
+            ) : (
+              r.imageUrl && <img src={r.imageUrl} alt="" className={styles.recipeCardImg} />
+            )}
             <h3>{r.title}</h3>
-            {r.description && <p className={styles.recipeCardDesc}>{r.description}</p>}
+            {linkOnly ? (
+              <p className={styles.recipeCardDesc}>자동 추출 실패 · 링크만 저장됨</p>
+            ) : (
+              r.description && <p className={styles.recipeCardDesc}>{r.description}</p>
+            )}
             {r._saved ? (
               <span className={styles.savedBadge}>✅ 등록 완료</span>
             ) : (
               <button type="button" className="btn-primary btn-sm" onClick={() => onSelect(i)} disabled={saving}>확인하기</button>
             )}
           </div>
-        ))}
+          )
+        })}
       </div>
       {saveError && <p className="error-msg">{saveError}</p>}
       <div className={styles.extractedListActions}>
@@ -265,7 +277,7 @@ const emptyStep = (order) => ({ order, description: '', imageUrl: '' })
 
 const blankForm = () => ({
   title: '', description: '', ageGroup: 'MONTH_4_6', category: 'PORRIDGE',
-  cookingTime: '', servings: '', imageUrl: '', tags: '',
+  cookingTime: '', servings: '', imageUrl: '', sourceUrl: '', tags: '',
   ingredients: [emptyIngredient()],
   steps: [emptyStep(1)],
 })
@@ -279,6 +291,7 @@ const mergeIntoForm = (base, data) => ({
   cookingTime: data.cookingTime ?? base.cookingTime,
   servings: data.servings ?? base.servings,
   imageUrl: base.imageUrl || data.imageUrl,
+  sourceUrl: data.sourceUrl || base.sourceUrl,
   tags: data.tags?.join(', ') || base.tags,
   ingredients: data.ingredients?.length ? data.ingredients : base.ingredients,
   steps: data.steps?.length ? data.steps : base.steps,
@@ -298,19 +311,23 @@ export default function RecipeForm() {
   const [activeIndex, setActiveIndex] = useState(null)
   const [savingAll, setSavingAll] = useState(false)
   const [saveAllError, setSaveAllError] = useState('')
+  const [linkOnlyNotice, setLinkOnlyNotice] = useState(false)
 
   const handleExtracted = (data) => {
     const list = Array.isArray(data) ? data : [data]
     if (list.length > 1) {
       setExtractedList(list.map(r => ({ ...r, _saved: false })))
       setActiveIndex(null)
+      setLinkOnlyNotice(false)
     } else if (list.length === 1) {
+      setLinkOnlyNotice(isLinkOnly(list[0]))
       setForm(f => mergeIntoForm(f, list[0]))
     }
   }
 
   const openForEdit = (i) => {
     setForm(mergeIntoForm(blankForm(), extractedList[i]))
+    setLinkOnlyNotice(isLinkOnly(extractedList[i]))
     setActiveIndex(i)
   }
 
@@ -326,6 +343,7 @@ export default function RecipeForm() {
     cookingTime: r.cookingTime ?? null,
     servings: r.servings ?? null,
     imageUrl: r.imageUrl || null,
+    sourceUrl: r.sourceUrl || null,
     tags: r.tags || [],
     ingredients: (r.ingredients || []).filter(i => i.name),
     steps: (r.steps || []).filter(s => s.description).map((s, idx) => ({ ...s, order: idx + 1 })),
@@ -363,6 +381,7 @@ export default function RecipeForm() {
           cookingTime: r.cookingTime || '',
           servings: r.servings || '',
           imageUrl: r.imageUrl || '',
+          sourceUrl: r.sourceUrl || '',
           tags: r.tags?.join(', ') || '',
           ingredients: r.ingredients?.length ? r.ingredients : [emptyIngredient()],
           steps: r.steps?.length ? r.steps : [emptyStep(1)],
@@ -402,6 +421,7 @@ export default function RecipeForm() {
         cookingTime: form.cookingTime ? Number(form.cookingTime) : null,
         servings: form.servings ? Number(form.servings) : null,
         imageUrl: form.imageUrl || null,
+        sourceUrl: form.sourceUrl || null,
         tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         ingredients: form.ingredients.filter(i => i.name),
         steps: form.steps.filter(s => s.description).map((s, idx) => ({ ...s, order: idx + 1 })),
@@ -447,8 +467,20 @@ export default function RecipeForm() {
             <button type="button" className={styles.backToListBtn} onClick={backToList}>← 목록으로</button>
           )}
 
+          {linkOnlyNotice && (
+            <div className={styles.linkOnlyNotice}>
+              <span className={styles.linkOnlyNoticeIcon}>🔗</span>
+              <p>자동으로 읽어올 수 없는 링크예요. 링크는 저장해뒀으니 아래에서 나머지 정보만 채워주세요!</p>
+            </div>
+          )}
+
           <section className={styles.section}>
             <h2>기본 정보</h2>
+            {form.sourceUrl && (
+              <a href={form.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkChip}>
+                {sourceLabel(form.sourceUrl)} 원본 링크 열기 ↗
+              </a>
+            )}
             <div>
               <p className={styles.fieldLabel}>대표 이미지</p>
               <ImageUploadInput

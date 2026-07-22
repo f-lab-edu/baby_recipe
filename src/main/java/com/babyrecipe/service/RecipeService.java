@@ -45,6 +45,7 @@ public class RecipeService {
             .title(request.getTitle())
             .description(request.getDescription())
             .imageUrl(request.getImageUrl())
+            .sourceUrl(request.getSourceUrl())
             .ageGroup(request.getAgeGroup())
             .category(request.getCategory())
             .cookingTime(request.getCookingTime())
@@ -77,7 +78,7 @@ public class RecipeService {
         Recipe recipe = findRecipe(recipeId);
         checkAuthor(recipe, userId);
 
-        recipe.update(request.getTitle(), request.getDescription(), request.getImageUrl(),
+        recipe.update(request.getTitle(), request.getDescription(), request.getImageUrl(), request.getSourceUrl(),
             request.getCookingTime(), request.getServings(),
             request.getAgeGroup(), request.getCategory());
 

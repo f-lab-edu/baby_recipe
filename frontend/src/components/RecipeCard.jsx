@@ -1,14 +1,20 @@
 import { Link } from 'react-router-dom'
+import { isLinkOnly } from '../utils/sourceLink'
 import styles from './RecipeCard.module.css'
 
 export default function RecipeCard({ recipe }) {
+  const linkOnly = isLinkOnly(recipe)
   return (
     <Link to={`/recipes/${recipe.id}`} className={styles.card}>
       <div className={styles.thumb}>
-        {recipe.imageUrl
-          ? <img src={recipe.imageUrl} alt={recipe.title} />
-          : <div className={styles.placeholder}>🍱</div>
-        }
+        {linkOnly && <span className={styles.linkBadge}>🔗 링크</span>}
+        {linkOnly ? (
+          <div className={styles.linkThumb}>🔗</div>
+        ) : recipe.imageUrl ? (
+          <img src={recipe.imageUrl} alt={recipe.title} />
+        ) : (
+          <div className={styles.placeholder}>🍱</div>
+        )}
       </div>
       <div className={styles.body}>
         <div className={styles.badges}>

@@ -12,6 +12,7 @@ public class RecipeExtractResponse {
     private Integer cookingTime;
     private Integer servings;
     private String imageUrl;
+    private String sourceUrl;
     private List<String> tags;
     private List<IngredientItem> ingredients;
     private List<StepItem> steps;

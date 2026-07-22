@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
+import { hostnameOf, sourceLabel } from '../utils/sourceLink'
 import styles from './RecipeDetail.module.css'
 
 export default function RecipeDetail() {
@@ -100,6 +101,14 @@ export default function RecipeDetail() {
             </span>
           </div>
 
+          {recipe.sourceUrl && (
+            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkCard}>
+              <span>{sourceLabel(recipe.sourceUrl)}</span>
+              <span className={styles.sourceDomain}>{hostnameOf(recipe.sourceUrl)}</span>
+              <span>원문 보러가기 →</span>
+            </a>
+          )}
+
           <p className={styles.desc}>{recipe.description}</p>
 
           <div className={styles.reactionRow}>
@@ -146,6 +155,13 @@ export default function RecipeDetail() {
                 ))}
               </ol>
             </section>
+          )}
+
+          {isAuthor && recipe.sourceUrl && !recipe.ingredients?.length && !recipe.steps?.length && (
+            <div className={styles.emptyContentHint}>
+              <span>아직 재료·조리법이 없어요. 원문을 참고해서 채워보세요!</span>
+              <Link to={`/recipes/${id}/edit`}><button className="btn-secondary btn-sm">수정하기</button></Link>
+            </div>
           )}
 
           <section className={styles.section}>

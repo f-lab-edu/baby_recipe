@@ -57,17 +57,41 @@ public class RecipeExtractService {
             throw BabyRecipeException.badRequest("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.");
         }
         log.debug("레시피 추출 시작: url={}, model={}", url, model);
-        PageContent page = fetchContent(url);
-        String jsonText = callClaudeText(url, page);
-        log.info("Claude 응답: {}", jsonText);
-        List<RecipeExtractResponse> results = parseResult(jsonText);
-        for (RecipeExtractResponse result : results) {
-            if (page.structuredContent().isBlank()) {
-                assignStepImagesSequentially(result, page.rawImageUrls());
+        try {
+            PageContent page = fetchContent(url);
+            String jsonText = callClaudeText(url, page);
+            log.info("Claude 응답: {}", jsonText);
+            List<RecipeExtractResponse> results = parseResult(jsonText);
+            for (RecipeExtractResponse result : results) {
+                if (page.structuredContent().isBlank()) {
+                    assignStepImagesSequentially(result, page.rawImageUrls());
+                }
+                downloadExternalImages(result, url);
+                result.setSourceUrl(url);
             }
-            downloadExternalImages(result, url);
+            return results;
+        } catch (Exception e) {
+            log.warn("URL 자동 추출 실패, 링크만 저장하는 폴백으로 전환: url={}", url, e);
+            return List.of(buildUrlOnlyFallback(url));
         }
-        return results;
+    }
+
+    private RecipeExtractResponse buildUrlOnlyFallback(String url) {
+        RecipeExtractResponse r = new RecipeExtractResponse();
+        r.setTitle(guessSourceLabel(url) + "에서 가져온 레시피");
+        r.setSourceUrl(url);
+        r.setIngredients(List.of());
+        r.setSteps(List.of());
+        r.setTags(List.of());
+        return r;
+    }
+
+    private String guessSourceLabel(String url) {
+        if (url.contains("instagram.com")) return "인스타그램";
+        if (url.contains("tiktok.com")) return "틱톡";
+        if (url.contains("youtube.com") || url.contains("youtu.be")) return "유튜브";
+        if (url.contains("blog.naver.com")) return "네이버 블로그";
+        return "웹페이지";
     }
 
     private void assignStepImagesSequentially(RecipeExtractResponse response, List<String> stepImageCandidates) {

@@ -29,6 +29,7 @@ public class RecipeRequest {
     private Integer cookingTime;
     private Integer servings;
     private String imageUrl;
+    private String sourceUrl;
 
     @Valid
     private List<IngredientItem> ingredients;
