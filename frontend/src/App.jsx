@@ -10,6 +10,8 @@ import RecipeForm from './pages/RecipeForm'
 import Feed from './pages/Feed'
 import UserProfile from './pages/UserProfile'
 import EditProfile from './pages/EditProfile'
+import ChatRoomList from './pages/ChatRoomList'
+import ChatRoom from './pages/ChatRoom'
 
 export default function App() {
   return (
@@ -26,6 +28,8 @@ export default function App() {
           <Route path="/recipes/:id/edit" element={<PrivateRoute><RecipeForm /></PrivateRoute>} />
           <Route path="/feed" element={<PrivateRoute><Feed /></PrivateRoute>} />
           <Route path="/profile/edit" element={<PrivateRoute><EditProfile /></PrivateRoute>} />
+          <Route path="/chat" element={<PrivateRoute><ChatRoomList /></PrivateRoute>} />
+          <Route path="/chat/:roomId" element={<PrivateRoute><ChatRoom /></PrivateRoute>} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

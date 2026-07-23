@@ -28,6 +28,16 @@ export default function UserProfile() {
     }).finally(() => setLoading(false))
   }, [id])
 
+  const startChat = async () => {
+    if (!isLoggedIn) { navigate('/login'); return }
+    try {
+      const res = await api.post('/chat/rooms', { partnerId: Number(id) })
+      navigate(`/chat/${res.data.data.id}`)
+    } catch (err) {
+      alert(err.response?.data?.message || '채팅을 시작할 수 없습니다.')
+    }
+  }
+
   const toggleFollow = async () => {
     if (!isLoggedIn) { navigate('/login'); return }
     if (profile.following) {
@@ -60,9 +70,12 @@ export default function UserProfile() {
             {isMe ? (
               <button className="btn-secondary btn-sm" onClick={() => navigate('/profile/edit')}>프로필 수정</button>
             ) : isLoggedIn && (
-              <button className={profile.following ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'} onClick={toggleFollow}>
-                {profile.following ? '팔로잉' : '팔로우'}
-              </button>
+              <div className={styles.actions}>
+                <button className={profile.following ? 'btn-secondary btn-sm' : 'btn-primary btn-sm'} onClick={toggleFollow}>
+                  {profile.following ? '팔로잉' : '팔로우'}
+                </button>
+                <button className="btn-secondary btn-sm" onClick={startChat}>채팅하기</button>
+              </div>
             )}
           </div>
         </div>
