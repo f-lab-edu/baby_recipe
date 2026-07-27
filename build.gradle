@@ -56,3 +56,13 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// 소스에 한글이 들어 있는데 javac는 플랫폼 기본 인코딩(Windows: MS949)으로 읽는다.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// JVM의 stdout.encoding도 MS949라 System.out.println의 한글이 깨진다.
+tasks.named('bootRun') {
+    jvmArgs '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8', '-Dfile.encoding=UTF-8'
+}
