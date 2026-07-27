@@ -14,7 +14,7 @@ export default function Navbar() {
   return (
     <nav className={styles.nav}>
       <div className={`container ${styles.inner}`}>
-        <Link to="/" className={styles.logo}>🍼 reciplog</Link>
+        <Link to="/" className={styles.logo}>📖 reciplog</Link>
         <div className={styles.links}>
           {isLoggedIn ? (
             <>

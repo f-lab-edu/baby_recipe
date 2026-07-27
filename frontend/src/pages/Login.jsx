@@ -28,7 +28,7 @@ export default function Login() {
   return (
     <div className={styles.wrap}>
       <div className={styles.box}>
-        <h2 className={styles.title}>🍼 reciplog</h2>
+        <h2 className={styles.title}>📖 reciplog</h2>
         <p className={styles.sub}>로그인</p>
         <form onSubmit={handleSubmit} className={styles.form}>
           <input

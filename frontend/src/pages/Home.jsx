@@ -64,7 +64,7 @@ export default function Home() {
     <div className="page">
       <div className="container">
         <div className={styles.header}>
-          <h1>🍼 아기 레시피</h1>
+          <h1>📖 reciplog</h1>
           <form onSubmit={handleSearch} className={styles.searchForm}>
             <input
               placeholder="레시피 검색..."
