@@ -34,8 +34,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal UserDetails userDetails) {
-        authService.logout(Long.parseLong(userDetails.getUsername()));
+    public ResponseEntity<ApiResponse<Void>> logout(
+        @AuthenticationPrincipal UserDetails userDetails,
+        @RequestParam(required = false) String refreshToken
+    ) {
+        authService.logout(Long.parseLong(userDetails.getUsername()), refreshToken);
         return ResponseEntity.ok(ApiResponse.ok("로그아웃 되었습니다."));
     }
 

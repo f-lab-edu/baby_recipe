@@ -7,6 +7,7 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ email: '', password: '' })
+  const [persistent, setPersistent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -15,7 +16,7 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
-      await login(form.email, form.password)
+      await login(form.email, form.password, persistent)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.message || '로그인에 실패했습니다.')
@@ -42,6 +43,14 @@ export default function Login() {
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
             required
           />
+          <label className={styles.persist}>
+            <input
+              type="checkbox"
+              checked={persistent}
+              onChange={e => setPersistent(e.target.checked)}
+            />
+            로그인 상태 유지
+          </label>
           {error && <p className="error-msg">{error}</p>}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? '로그인 중...' : '로그인'}

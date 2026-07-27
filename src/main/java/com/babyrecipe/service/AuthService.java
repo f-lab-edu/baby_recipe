@@ -54,7 +54,9 @@ public class AuthService {
         String accessToken = jwtProvider.createAccessToken(user.getId(), user.getEmail());
         String refreshToken = jwtProvider.createRefreshToken(user.getId(), user.getEmail());
 
-        refreshTokenRepository.deleteByUserId(user.getId());
+        // 기기별 동시 로그인을 허용하므로 기존 세션은 지우지 않는다.
+        // 대신 만료된 토큰이 쌓이지 않도록 이 시점에 정리한다.
+        refreshTokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
         refreshTokenRepository.save(RefreshToken.builder()
             .user(user)
             .token(refreshToken)
@@ -69,9 +71,19 @@ public class AuthService {
             .build();
     }
 
+    /**
+     * refreshToken이 있으면 해당 세션만, 없으면 사용자의 모든 세션을 로그아웃한다.
+     * 다른 사용자의 토큰을 넘겨 남의 세션을 끊을 수 없도록 소유자를 확인한다.
+     */
     @Transactional
-    public void logout(Long userId) {
-        refreshTokenRepository.deleteByUserId(userId);
+    public void logout(Long userId, String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            refreshTokenRepository.deleteByUserId(userId);
+            return;
+        }
+        refreshTokenRepository.findByToken(refreshToken)
+            .filter(stored -> stored.getUser().getId().equals(userId))
+            .ifPresent(refreshTokenRepository::delete);
     }
 
     @Transactional

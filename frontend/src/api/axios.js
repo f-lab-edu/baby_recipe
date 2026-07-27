@@ -1,12 +1,32 @@
 import axios from 'axios'
+import { getItem, setItem, clearAuth } from './tokenStorage'
 
 const api = axios.create({ baseURL: '/api' })
 
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
+  const token = getItem('accessToken')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
+
+let refreshPromise = null
+
+function refreshAccessToken() {
+  if (!refreshPromise) {
+    const refreshToken = getItem('refreshToken')
+    refreshPromise = axios.post(`/api/auth/refresh?refreshToken=${refreshToken}`)
+      .then(res => {
+        const { accessToken, refreshToken: newRefreshToken } = res.data.data
+        setItem('accessToken', accessToken)
+        if (newRefreshToken) setItem('refreshToken', newRefreshToken)
+        return accessToken
+      })
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
 
 api.interceptors.response.use(
   res => res,
@@ -14,16 +34,14 @@ api.interceptors.response.use(
     const original = err.config
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true
-      const refreshToken = localStorage.getItem('refreshToken')
+      const refreshToken = getItem('refreshToken')
       if (refreshToken) {
         try {
-          const res = await axios.post(`/api/auth/refresh?refreshToken=${refreshToken}`)
-          const { accessToken } = res.data.data
-          localStorage.setItem('accessToken', accessToken)
+          const accessToken = await refreshAccessToken()
           original.headers.Authorization = `Bearer ${accessToken}`
           return api(original)
         } catch {
-          localStorage.clear()
+          clearAuth()
           window.location.href = '/login'
         }
       }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -39,6 +40,9 @@ public class JwtProvider {
     private String buildToken(Long userId, String email, long expiry) {
         Date now = new Date();
         return Jwts.builder()
+            // iat/exp는 초 단위라 같은 초에 발급하면 토큰 문자열이 완전히 같아진다.
+            // refresh_tokens.token의 UNIQUE 제약에 걸리므로 jti로 매번 다르게 만든다.
+            .id(UUID.randomUUID().toString())
             .subject(String.valueOf(userId))
             .claim("email", email)
             .issuedAt(now)
