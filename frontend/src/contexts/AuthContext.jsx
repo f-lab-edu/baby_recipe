@@ -27,7 +27,9 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = useCallback(async () => {
-    try { await api.post('/auth/logout') } catch {}
+    // 이 기기의 세션만 끊는다. 생략하면 다른 기기까지 모두 로그아웃된다.
+    const refreshToken = getItem('refreshToken')
+    try { await api.post('/auth/logout', null, { params: { refreshToken } }) } catch {}
     clearAuth()
     setUser(null)
   }, [])
