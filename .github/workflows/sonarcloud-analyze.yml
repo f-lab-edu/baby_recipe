@@ -27,7 +27,9 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          # SonarQube Cloud가 Java 17 지원을 중단해 분석이 실패한다.
+          # 분석 전용 JDK이며, 배포 빌드(cd.yml)와 sourceCompatibility는 17을 유지한다.
+          java-version: '21'
           distribution: 'temurin'
 
       - name: Create Sonar Gradle File
