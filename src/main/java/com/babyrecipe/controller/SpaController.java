@@ -6,7 +6,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @Controller
 public class SpaController {
 
-    @RequestMapping(value = {"/{path:^(?!uploads$|assets$)[^\\.]*$}", "/{path:^(?!uploads$|assets$)[^\\.]*$}/**"})
+    // ws는 반드시 제외해야 한다. RequestMappingHandlerMapping(order 0)이 STOMP의
+    // WebSocketHandlerMapping(order 1)보다 먼저 조회되므로, 여기서 /ws가 잡히면
+    // 핸드셰이크가 index.html forward로 가로채여 101 대신 200이 응답된다.
+    @RequestMapping(value = {"/{path:^(?!uploads$|assets$|ws$)[^\\.]*$}", "/{path:^(?!uploads$|assets$|ws$)[^\\.]*$}/**"})
     public String forwardToIndex() {
         return "forward:/index.html";
     }
