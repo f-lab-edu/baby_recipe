@@ -19,6 +19,7 @@ export default function Navbar() {
           {isLoggedIn ? (
             <>
               <Link to="/feed">피드</Link>
+              <Link to="/users/search">유저 검색</Link>
               <Link to="/chat">채팅</Link>
               <Link to="/recipes/new">레시피 작성</Link>
               <Link to={`/users/${user?.id}`}>{user?.nickname || '마이페이지'}</Link>

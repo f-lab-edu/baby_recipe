@@ -26,6 +26,16 @@ public class UserController {
 
     private final UserService userService;
 
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<UserResponse>>> searchUsers(
+        @RequestParam String keyword,
+        @PageableDefault(size = 20) Pageable pageable,
+        @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        Long currentUserId = userDetails != null ? Long.parseLong(userDetails.getUsername()) : null;
+        return ResponseEntity.ok(ApiResponse.ok(userService.searchUsers(keyword, currentUserId, pageable)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> getUser(
         @PathVariable Long id,
