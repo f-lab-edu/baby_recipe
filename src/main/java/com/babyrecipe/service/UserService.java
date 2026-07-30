@@ -8,6 +8,8 @@ import com.babyrecipe.exception.BabyRecipeException;
 import com.babyrecipe.repository.FollowRepository;
 import com.babyrecipe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +78,15 @@ public class UserService {
         Follow follow = followRepository.findByFollowerIdAndFollowingId(followerId, followingId)
             .orElseThrow(() -> BabyRecipeException.notFound("팔로우 관계"));
         followRepository.delete(follow);
+    }
+
+    public Page<UserResponse> searchUsers(String keyword, Long currentUserId, Pageable pageable) {
+        return userRepository.searchByNickname(keyword, currentUserId, pageable)
+            .map(u -> UserResponse.of(u,
+                userRepository.countFollowers(u.getId()),
+                userRepository.countFollowing(u.getId()),
+                currentUserId != null
+                    && followRepository.existsByFollowerIdAndFollowingId(currentUserId, u.getId())));
     }
 
     public List<UserResponse> getFollowers(Long userId) {
