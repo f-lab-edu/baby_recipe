@@ -1,28 +1,38 @@
 package com.babyrecipe.service;
 
 import com.babyrecipe.config.JwtProvider;
+import com.babyrecipe.domain.PasswordResetToken;
 import com.babyrecipe.domain.RefreshToken;
 import com.babyrecipe.domain.User;
 import com.babyrecipe.dto.request.LoginRequest;
+import com.babyrecipe.dto.request.PasswordResetConfirmRequest;
+import com.babyrecipe.dto.request.PasswordResetRequest;
 import com.babyrecipe.dto.request.RegisterRequest;
 import com.babyrecipe.dto.response.TokenResponse;
 import com.babyrecipe.exception.BabyRecipeException;
+import com.babyrecipe.repository.PasswordResetTokenRepository;
 import com.babyrecipe.repository.RefreshTokenRepository;
 import com.babyrecipe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
 
+    private static final long PASSWORD_RESET_TOKEN_VALID_MINUTES = 30;
+
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
@@ -117,5 +127,41 @@ public class AuthService {
             .tokenType("Bearer")
             .expiresIn(jwtProvider.getAccessTokenExpiry() / 1000)
             .build();
+    }
+
+    /**
+     * 존재하지 않는 이메일이어도 동일하게 처리해 계정 존재 여부가 노출되지 않도록 한다.
+     * 실제 메일 발송 인프라가 없어 재설정 링크는 서버 로그로만 출력한다(개발용).
+     */
+    @Transactional
+    public void requestPasswordReset(PasswordResetRequest request) {
+        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUserId(user.getId());
+
+            String token = UUID.randomUUID().toString();
+            passwordResetTokenRepository.save(PasswordResetToken.builder()
+                .user(user)
+                .token(token)
+                .expiresAt(LocalDateTime.now().plusMinutes(PASSWORD_RESET_TOKEN_VALID_MINUTES))
+                .build());
+
+            log.info("[비밀번호 재설정] {}님의 재설정 토큰: {} ({}분간 유효)",
+                user.getEmail(), token, PASSWORD_RESET_TOKEN_VALID_MINUTES);
+        });
+    }
+
+    @Transactional
+    public void confirmPasswordReset(PasswordResetConfirmRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+            .orElseThrow(() -> BabyRecipeException.badRequest("유효하지 않은 재설정 토큰입니다."));
+
+        if (resetToken.isUsed() || resetToken.isExpired()) {
+            throw BabyRecipeException.badRequest("만료되었거나 이미 사용된 재설정 토큰입니다.");
+        }
+
+        User user = resetToken.getUser();
+        user.updatePassword(passwordEncoder.encode(request.getNewPassword()));
+        resetToken.markUsed();
+        refreshTokenRepository.deleteByUserId(user.getId());
     }
 }

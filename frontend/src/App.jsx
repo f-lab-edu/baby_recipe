@@ -5,6 +5,8 @@ import PrivateRoute from './components/PrivateRoute'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import RecipeDetail from './pages/RecipeDetail'
 import RecipeForm from './pages/RecipeForm'
 import Feed from './pages/Feed'
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/recipes/:id" element={<RecipeDetail />} />
           <Route path="/users/search" element={<PrivateRoute><UserSearch /></PrivateRoute>} />
           <Route path="/users/:id" element={<UserProfile />} />

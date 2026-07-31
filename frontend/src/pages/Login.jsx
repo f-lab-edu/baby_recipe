@@ -51,6 +51,7 @@ export default function Login() {
             />
             로그인 상태 유지
           </label>
+          <Link to="/forgot-password" className={styles.forgot}>비밀번호를 잊으셨나요?</Link>
           {error && <p className="error-msg">{error}</p>}
           <button type="submit" className="btn-primary" disabled={loading}>
             {loading ? '로그인 중...' : '로그인'}
