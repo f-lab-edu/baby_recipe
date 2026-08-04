@@ -256,11 +256,8 @@ function AutoExtractor({ onExtracted }) {
 }
 
 const AGE_GROUPS = [
-  { value: 'MONTH_4_6', label: '4~6개월' },
-  { value: 'MONTH_7_9', label: '7~9개월' },
-  { value: 'MONTH_10_12', label: '10~12개월' },
-  { value: 'MONTH_12_18', label: '12~18개월' },
-  { value: 'MONTH_18_PLUS', label: '18개월 이상' },
+  { value: 'BABY_FOOD', label: '이유식' },
+  { value: 'ADULT_FOOD', label: '어른 음식' },
 ]
 
 const CATEGORIES = [
@@ -276,7 +273,7 @@ const emptyIngredient = () => ({ name: '', amount: '', unit: '' })
 const emptyStep = (order) => ({ order, description: '', imageUrl: '' })
 
 const blankForm = () => ({
-  title: '', description: '', ageGroup: 'MONTH_4_6', category: 'PORRIDGE',
+  title: '', description: '', ageGroup: 'BABY_FOOD', category: 'PORRIDGE',
   cookingTime: '', servings: '', imageUrl: '', sourceUrl: '', tags: '',
   ingredients: [emptyIngredient()],
   steps: [emptyStep(1)],
@@ -376,7 +373,7 @@ export default function RecipeForm() {
         setForm({
           title: r.title || '',
           description: r.description || '',
-          ageGroup: r.ageGroup || 'MONTH_4_6',
+          ageGroup: r.ageGroup || 'BABY_FOOD',
           category: r.category || 'PORRIDGE',
           cookingTime: r.cookingTime || '',
           servings: r.servings || '',
