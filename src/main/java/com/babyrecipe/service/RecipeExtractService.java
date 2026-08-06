@@ -515,12 +515,24 @@ public class RecipeExtractService {
 
     // ── 파싱 ──────────────────────────────────────────────────────────────────
 
+    private static final java.util.Set<String> VALID_AGE_GROUPS =
+        java.util.Set.of("BABY_FOOD", "ADULT_FOOD");
+
+    private void sanitizeAgeGroup(RecipeExtractResponse response) {
+        if (!VALID_AGE_GROUPS.contains(response.getAgeGroup())) {
+            log.warn("허용되지 않은 ageGroup 값 교체: {} → BABY_FOOD", response.getAgeGroup());
+            response.setAgeGroup("BABY_FOOD");
+        }
+    }
+
     private List<RecipeExtractResponse> parseResult(String jsonText) {
         try {
             List<JsonNode> nodes = extractJsonNodes(jsonText);
             List<RecipeExtractResponse> results = new ArrayList<>();
             for (JsonNode node : nodes) {
-                results.add(objectMapper.treeToValue(node, RecipeExtractResponse.class));
+                RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+                sanitizeAgeGroup(response);
+                results.add(response);
             }
             return results;
         } catch (BabyRecipeException e) {
@@ -542,6 +554,7 @@ public class RecipeExtractService {
                     ? node.get("finishedImageIndex").asInt() : null;
 
                 RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+                sanitizeAgeGroup(response);
 
                 if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
                     response.setImageUrl(savedUrls.get(finishedIdx - 1));

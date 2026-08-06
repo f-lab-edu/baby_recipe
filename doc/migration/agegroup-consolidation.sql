@@ -18,17 +18,16 @@ WHERE age_group IN ('MONTH_4_6', 'MONTH_7_9', 'MONTH_10_12', 'MONTH_12_18', 'MON
 -- SELECT COUNT(*), age_group FROM recipes_agegroup_backup GROUP BY age_group;
 
 -- ──────────────────────────────────────────────────────────
--- STEP 1: BABY_FOOD 매핑
--- MONTH_4_6 / MONTH_7_9 / MONTH_10_12 / MONTH_12_18 → BABY_FOOD
+-- STEP 1 & 2: 트랜잭션으로 묶어 원자적으로 실행
 -- ──────────────────────────────────────────────────────────
+START TRANSACTION;
+
+-- BABY_FOOD 매핑: MONTH_4_6 / MONTH_7_9 / MONTH_10_12 / MONTH_12_18 → BABY_FOOD
 UPDATE recipes
 SET age_group = 'BABY_FOOD'
 WHERE age_group IN ('MONTH_4_6', 'MONTH_7_9', 'MONTH_10_12', 'MONTH_12_18');
 
--- ──────────────────────────────────────────────────────────
--- STEP 2: ADULT_FOOD 매핑
--- MONTH_18_PLUS → ADULT_FOOD
--- ──────────────────────────────────────────────────────────
+-- ADULT_FOOD 매핑: MONTH_18_PLUS → ADULT_FOOD
 UPDATE recipes
 SET age_group = 'ADULT_FOOD'
 WHERE age_group = 'MONTH_18_PLUS';
@@ -37,7 +36,9 @@ WHERE age_group = 'MONTH_18_PLUS';
 -- STEP 3: 결과 검증
 -- 아래 쿼리 결과에 구 값(MONTH_*)이 남아 있으면 안 된다.
 -- ──────────────────────────────────────────────────────────
--- SELECT age_group, COUNT(*) AS cnt FROM recipes GROUP BY age_group;
+SELECT age_group, COUNT(*) AS cnt FROM recipes GROUP BY age_group;
+
+COMMIT;
 
 -- ──────────────────────────────────────────────────────────
 -- STEP 4: 백업 테이블 삭제 (검증 완료 후 수행)

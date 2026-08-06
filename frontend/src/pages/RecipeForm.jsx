@@ -370,10 +370,17 @@ export default function RecipeForm() {
     if (isEdit) {
       api.get(`/recipes/${id}`).then(res => {
         const r = res.data.data
+        const LEGACY_TO_NEW = {
+          MONTH_4_6: 'BABY_FOOD',
+          MONTH_7_9: 'BABY_FOOD',
+          MONTH_10_12: 'BABY_FOOD',
+          MONTH_12_18: 'BABY_FOOD',
+          MONTH_18_PLUS: 'ADULT_FOOD',
+        }
         setForm({
           title: r.title || '',
           description: r.description || '',
-          ageGroup: r.ageGroup || 'BABY_FOOD',
+          ageGroup: LEGACY_TO_NEW[r.ageGroup] ?? r.ageGroup ?? 'BABY_FOOD',
           category: r.category || 'PORRIDGE',
           cookingTime: r.cookingTime || '',
           servings: r.servings || '',
