@@ -519,7 +519,7 @@ public class RecipeExtractService {
         java.util.Set.of("BABY_FOOD", "ADULT_FOOD");
 
     private void sanitizeAgeGroup(RecipeExtractResponse response) {
-        if (!VALID_AGE_GROUPS.contains(response.getAgeGroup())) {
+        if (response.getAgeGroup() == null || !VALID_AGE_GROUPS.contains(response.getAgeGroup())) {
             log.warn("허용되지 않은 ageGroup 값 교체: {} → BABY_FOOD", response.getAgeGroup());
             response.setAgeGroup("BABY_FOOD");
         }
