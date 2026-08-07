@@ -84,11 +84,8 @@ public class Recipe {
     private LocalDateTime updatedAt;
 
     public enum AgeGroup {
-        MONTH_4_6("4~6개월"),
-        MONTH_7_9("7~9개월"),
-        MONTH_10_12("10~12개월"),
-        MONTH_12_18("12~18개월"),
-        MONTH_18_PLUS("18개월 이상");
+        BABY_FOOD("이유식"),
+        ADULT_FOOD("어른 음식");
 
         public final String label;
         AgeGroup(String label) { this.label = label; }

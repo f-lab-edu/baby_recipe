@@ -407,7 +407,7 @@ public class RecipeExtractService {
               {
                 "title": "레시피 제목",
                 "description": "간단한 설명 (2~3문장)",
-                "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
+                "ageGroup": "BABY_FOOD 또는 ADULT_FOOD 중 하나",
                 "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
                 "cookingTime": 조리시간(분, 숫자 또는 null),
                 "servings": 인분수(숫자 또는 null),
@@ -418,7 +418,7 @@ public class RecipeExtractService {
               }
             ]
 
-            연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
+            연령 그룹: 이유식(영아용, 18개월 미만 기준)→BABY_FOOD, 어른 음식(가족 식사 등 일반 요리)→ADULT_FOOD
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
             반드시 JSON 배열로만 응답하세요 (배열을 감싸지 않은 단일 객체 금지).
             레시피를 찾을 수 없으면 빈 배열 []을 반환하세요.
@@ -459,7 +459,7 @@ public class RecipeExtractService {
               {
                 "title": "레시피 제목",
                 "description": "간단한 설명 (2~3문장)",
-                "ageGroup": "MONTH_4_6 또는 MONTH_7_9 또는 MONTH_10_12 또는 MONTH_12_18 또는 MONTH_18_PLUS 중 하나",
+                "ageGroup": "BABY_FOOD 또는 ADULT_FOOD 중 하나",
                 "category": "PORRIDGE 또는 SOUP 또는 SIDE_DISH 또는 FINGER_FOOD 또는 SNACK 또는 DRINK 중 하나",
                 "cookingTime": 조리시간(분, 숫자 또는 null),
                 "servings": 인분수(숫자 또는 null),
@@ -470,7 +470,7 @@ public class RecipeExtractService {
               }
             ]
 
-            연령 그룹: 4~6개월→MONTH_4_6, 7~9개월→MONTH_7_9, 10~12개월→MONTH_10_12, 12~18개월→MONTH_12_18, 18개월이상→MONTH_18_PLUS
+            연령 그룹: 이유식(영아용, 18개월 미만 기준)→BABY_FOOD, 어른 음식(가족 식사 등 일반 요리)→ADULT_FOOD
             카테고리: 죽→PORRIDGE, 국찌개→SOUP, 반찬→SIDE_DISH, 핑거푸드→FINGER_FOOD, 간식→SNACK, 음료→DRINK
             반드시 JSON 배열로만 응답하세요 (배열을 감싸지 않은 단일 객체 금지).
             """.formatted(count, count);
@@ -515,12 +515,24 @@ public class RecipeExtractService {
 
     // ── 파싱 ──────────────────────────────────────────────────────────────────
 
+    private static final java.util.Set<String> VALID_AGE_GROUPS =
+        java.util.Set.of("BABY_FOOD", "ADULT_FOOD");
+
+    private void sanitizeAgeGroup(RecipeExtractResponse response) {
+        if (response.getAgeGroup() == null || !VALID_AGE_GROUPS.contains(response.getAgeGroup())) {
+            log.warn("허용되지 않은 ageGroup 값 교체: {} → BABY_FOOD", response.getAgeGroup());
+            response.setAgeGroup("BABY_FOOD");
+        }
+    }
+
     private List<RecipeExtractResponse> parseResult(String jsonText) {
         try {
             List<JsonNode> nodes = extractJsonNodes(jsonText);
             List<RecipeExtractResponse> results = new ArrayList<>();
             for (JsonNode node : nodes) {
-                results.add(objectMapper.treeToValue(node, RecipeExtractResponse.class));
+                RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+                sanitizeAgeGroup(response);
+                results.add(response);
             }
             return results;
         } catch (BabyRecipeException e) {
@@ -542,6 +554,7 @@ public class RecipeExtractService {
                     ? node.get("finishedImageIndex").asInt() : null;
 
                 RecipeExtractResponse response = objectMapper.treeToValue(node, RecipeExtractResponse.class);
+                sanitizeAgeGroup(response);
 
                 if (finishedIdx != null && finishedIdx >= 1 && finishedIdx <= savedUrls.size()) {
                     response.setImageUrl(savedUrls.get(finishedIdx - 1));

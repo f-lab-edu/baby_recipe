@@ -4,12 +4,9 @@ import RecipeCard from '../components/RecipeCard'
 import styles from './Home.module.css'
 
 const AGE_GROUPS = [
-  { value: '', label: '전체 연령' },
-  { value: 'MONTH_4_6', label: '4~6개월' },
-  { value: 'MONTH_7_9', label: '7~9개월' },
-  { value: 'MONTH_10_12', label: '10~12개월' },
-  { value: 'MONTH_12_18', label: '12~18개월' },
-  { value: 'MONTH_18_PLUS', label: '18개월 이상' },
+  { value: '', label: '전체' },
+  { value: 'BABY_FOOD', label: '이유식' },
+  { value: 'ADULT_FOOD', label: '어른 음식' },
 ]
 
 const CATEGORIES = [
