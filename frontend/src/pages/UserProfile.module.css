@@ -30,6 +30,9 @@
 .stats { display: flex; gap: 20px; font-size: 13px; color: #495057; margin-bottom: 12px; }
 .stats b { font-weight: 700; color: #212529; }
 
+.statClickable { cursor: pointer; border-radius: 6px; padding: 2px 4px; margin: -2px -4px; }
+.statClickable:hover { background: #f8f9fa; }
+
 .actions { display: flex; gap: 8px; }
 
 .tabs { display: flex; gap: 0; border-bottom: 2px solid #f1f3f5; margin-bottom: 20px; }
