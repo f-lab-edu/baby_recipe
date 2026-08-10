@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import RecipeCard from '../components/RecipeCard'
+import FollowListModal from '../components/FollowListModal'
 import styles from './UserProfile.module.css'
 
 export default function UserProfile() {
@@ -13,6 +14,7 @@ export default function UserProfile() {
   const [recipes, setRecipes] = useState([])
   const [tab, setTab] = useState('recipes')
   const [loading, setLoading] = useState(true)
+  const [followModal, setFollowModal] = useState(null) // null | 'followers' | 'following'
 
   const isMe = me?.id === Number(id)
 
@@ -64,8 +66,12 @@ export default function UserProfile() {
             {profile.bio && <p className={styles.bio}>{profile.bio}</p>}
             <div className={styles.stats}>
               <span><b>{profile.recipeCount ?? recipes.length}</b> 레시피</span>
-              <span><b>{profile.followerCount ?? 0}</b> 팔로워</span>
-              <span><b>{profile.followingCount ?? 0}</b> 팔로잉</span>
+              <span className={styles.statClickable} onClick={() => setFollowModal('followers')}>
+                <b>{profile.followerCount ?? 0}</b> 팔로워
+              </span>
+              <span className={styles.statClickable} onClick={() => setFollowModal('following')}>
+                <b>{profile.followingCount ?? 0}</b> 팔로잉
+              </span>
             </div>
             {isMe ? (
               <button className="btn-secondary btn-sm" onClick={() => navigate('/profile/edit')}>프로필 수정</button>
@@ -92,6 +98,14 @@ export default function UserProfile() {
           </div>
         )}
       </div>
+
+      {followModal && (
+        <FollowListModal
+          userId={id}
+          mode={followModal}
+          onClose={() => setFollowModal(null)}
+        />
+      )}
     </div>
   )
 }
