@@ -3,6 +3,15 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import { hostnameOf, sourceLabel } from '../utils/sourceLink'
+
+function getYoutubeId(url) {
+  try {
+    const u = new URL(url)
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1)
+    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v')
+  } catch {}
+  return null
+}
 import styles from './RecipeDetail.module.css'
 
 export default function RecipeDetail() {
@@ -101,13 +110,26 @@ export default function RecipeDetail() {
             </span>
           </div>
 
-          {recipe.sourceUrl && (
-            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkCard}>
-              <span>{sourceLabel(recipe.sourceUrl)}</span>
-              <span className={styles.sourceDomain}>{hostnameOf(recipe.sourceUrl)}</span>
-              <span>원문 보러가기 →</span>
-            </a>
-          )}
+          {recipe.sourceUrl && (() => {
+            const ytId = getYoutubeId(recipe.sourceUrl)
+            if (ytId) {
+              return (
+                <iframe
+                  className={styles.youtubeEmbed}
+                  src={`https://www.youtube.com/embed/${ytId}`}
+                  title="YouTube video"
+                  allowFullScreen
+                />
+              )
+            }
+            return (
+              <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkCard}>
+                <span>{sourceLabel(recipe.sourceUrl)}</span>
+                <span className={styles.sourceDomain}>{hostnameOf(recipe.sourceUrl)}</span>
+                <span>원문 보러가기 →</span>
+              </a>
+            )
+          })()}
 
           <p className={styles.desc}>{recipe.description}</p>
 
