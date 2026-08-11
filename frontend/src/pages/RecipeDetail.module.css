@@ -35,7 +35,8 @@
 .sourceLinkCard:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(194,37,92,0.15); }
 .sourceDomain { color: #868e96; font-weight: 400; font-size: 13px; }
 
-.youtubeEmbed { width: 100%; aspect-ratio: 16 / 9; border: none; border-radius: 12px; margin-bottom: 20px; }
+.youtubeWrapper { margin-top: 24px; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+.youtubeEmbed { width: 100%; aspect-ratio: 16 / 9; border: none; }
 
 .emptyContentHint {
   margin-top: 28px;

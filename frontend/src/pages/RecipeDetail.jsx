@@ -3,16 +3,19 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import { hostnameOf, sourceLabel } from '../utils/sourceLink'
+import styles from './RecipeDetail.module.css'
 
 function getYoutubeId(url) {
   try {
     const u = new URL(url)
     if (u.hostname === 'youtu.be') return u.pathname.slice(1)
-    if (u.hostname.includes('youtube.com')) return u.searchParams.get('v')
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname.startsWith('/shorts/')) return u.pathname.split('/shorts/')[1].split('/')[0]
+      return u.searchParams.get('v')
+    }
   } catch {}
   return null
 }
-import styles from './RecipeDetail.module.css'
 
 export default function RecipeDetail() {
   const { id } = useParams()
@@ -114,12 +117,15 @@ export default function RecipeDetail() {
             const ytId = getYoutubeId(recipe.sourceUrl)
             if (ytId) {
               return (
-                <iframe
-                  className={styles.youtubeEmbed}
-                  src={`https://www.youtube.com/embed/${ytId}`}
-                  title="YouTube video"
-                  allowFullScreen
-                />
+                <div className={styles.youtubeWrapper}>
+                  <iframe
+                    className={styles.youtubeEmbed}
+                    src={`https://www.youtube.com/embed/${ytId}`}
+                    title="YouTube video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
               )
             }
             return (
