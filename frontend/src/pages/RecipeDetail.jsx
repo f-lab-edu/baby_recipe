@@ -5,6 +5,18 @@ import { useAuth } from '../contexts/AuthContext'
 import { hostnameOf, sourceLabel } from '../utils/sourceLink'
 import styles from './RecipeDetail.module.css'
 
+function getYoutubeId(url) {
+  try {
+    const u = new URL(url)
+    if (u.hostname === 'youtu.be') return u.pathname.slice(1)
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname.startsWith('/shorts/')) return u.pathname.split('/shorts/')[1].split('/')[0]
+      return u.searchParams.get('v')
+    }
+  } catch {}
+  return null
+}
+
 export default function RecipeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -101,13 +113,29 @@ export default function RecipeDetail() {
             </span>
           </div>
 
-          {recipe.sourceUrl && (
-            <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkCard}>
-              <span>{sourceLabel(recipe.sourceUrl)}</span>
-              <span className={styles.sourceDomain}>{hostnameOf(recipe.sourceUrl)}</span>
-              <span>원문 보러가기 →</span>
-            </a>
-          )}
+          {recipe.sourceUrl && (() => {
+            const ytId = getYoutubeId(recipe.sourceUrl)
+            if (ytId) {
+              return (
+                <div className={styles.youtubeWrapper}>
+                  <iframe
+                    className={styles.youtubeEmbed}
+                    src={`https://www.youtube.com/embed/${ytId}`}
+                    title="YouTube video"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+              )
+            }
+            return (
+              <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className={styles.sourceLinkCard}>
+                <span>{sourceLabel(recipe.sourceUrl)}</span>
+                <span className={styles.sourceDomain}>{hostnameOf(recipe.sourceUrl)}</span>
+                <span>원문 보러가기 →</span>
+              </a>
+            )
+          })()}
 
           <p className={styles.desc}>{recipe.description}</p>
 
